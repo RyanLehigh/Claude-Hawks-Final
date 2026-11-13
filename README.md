@@ -3,7 +3,7 @@
 FIN 377 final project (Seed 15), built with industry partner **Ornn**, a company
 that builds markets and price benchmarks for GPU compute.
 
-- **Dashboard:** *TBD: Streamlit Community Cloud link goes here once deployed* (app: [`app.py`](app.py))
+- **Dashboard:** https://claude-hawks-final-bcfmmhexdwvlz3ekklhhk9.streamlit.app/ (app: [`app.py`](app.py); if it's asleep, click "wake up")
 - Dashboard repo: this repo (`app.py` reads only `outputs/`)
 - Presentation: *TBD (file in this repo)*
 
