@@ -3,12 +3,28 @@
 FIN 377 final project (Seed 15), built with industry partner **Ornn**, a company
 that builds markets and price benchmarks for GPU compute.
 
-> **Status:** planning. This README describes the plan; sections marked *TBD*
-> get filled in as the project is built.
-
-- Dashboard: *TBD (link)*
-- Dashboard repo: *TBD (link)*
+- **Dashboard:** *TBD: Streamlit Community Cloud link goes here once deployed* (app: [`app.py`](app.py))
+- Dashboard repo: this repo (`app.py` reads only `outputs/`)
 - Presentation: *TBD (file in this repo)*
+
+> **Status: v0 (Checkpoint 2).** The whole pipeline runs end to end on a small
+> sample (8 firms, 2 per group, Nov 2024 – Sep 2026) using a **fake** GPU price
+> file, because the real Ornn data hasn't arrived yet. Results on fake data are
+> noise by design. Self-audit: [`audits/01_self_audit.md`](audits/01_self_audit.md).
+
+## How to run
+
+```bash
+pip install -r requirements.txt
+python run_all.py              # rebuilds data/processed/ and outputs/ from data/raw/
+python run_all.py --refresh    # same, but re-downloads stock prices and factors first
+streamlit run app.py           # dashboard, reads outputs/ only
+```
+
+`run_all.py` uses the real Ornn file if one is in `data/raw/ornn/` (git-ignored)
+and the committed fake file otherwise. Every output says which one it used
+(`data_source` = `ORNN` or `FAKE`). The last step, `code/06_hand_checks.py`,
+recomputes one number per step by hand and stops the run if any don't match.
 
 ---
 
@@ -34,7 +50,7 @@ depend on GPUs.
 | Market and factor returns | Ken French Data Library | Daily | Yes |
 
 Each raw file's provenance (source, pull date, and the code that re-downloads
-it) is recorded in [`data/README.md`](data/README.md) *(TBD)*.
+it) is recorded in [`data/README.md`](data/README.md).
 
 ### Ornn data rule
 
@@ -46,6 +62,8 @@ dashboard, not anywhere else.
 - So the pipeline runs for anyone, the repo includes a small **fake** file with
   the same columns (`data/raw/ornn_FAKE.csv`). The pipeline uses the real file
   when present and falls back to the fake one otherwise.
+- `data/processed/` is git-ignored too: it holds daily GPU price *changes*,
+  which would rebuild Ornn's price path. Only regression results go in `outputs/`.
 
 ### Open questions about the Ornn data
 
@@ -61,10 +79,14 @@ dashboard, not anywhere else.
 | Analysis panel | firm × trading day | `ticker`, `date` | stock return, market return, factor returns, change in GPU price |
 | Results | firm (× specification) | `ticker`, `spec` | compute beta, standard error, lead/lag coefficients, group |
 
-### Sample (MVP)
+### Sample
 
-About 30 firms in four groups, over the ~2 years the Ornn data covers.
-Draft list, to be finalized:
+**v0 (now):** 8 firms, 2 per group (NVDA, AMD · MSFT, AMZN · META, PLTR · KO, PG),
+2024-11-04 to 2026-09-30 (477 trading days). The end date is set by the Ken
+French daily factors, which currently stop at 2026-09-30.
+
+**MVP (v1):** about 30 firms in four groups, over the ~2 years the Ornn data
+covers. Draft list, to be finalized:
 
 | Group | Candidate tickers |
 |-------|-------------------|
@@ -98,8 +120,9 @@ results table whether or not its estimate is interesting.
    check that the compute beta is not just an AI-sentiment or Nasdaq factor in
    disguise. Check subperiods.
 
-Every specification run is logged in [`specs_tried.md`](specs_tried.md) *(TBD)*,
-with the total count reported.
+Every specification run is logged in [`specs_tried.md`](specs_tried.md),
+with the total count reported. In v0, steps 1–4 are done (with k = 2 leads and
+lags); step 5 is a simple group average; step 6 has SMB/HML only.
 
 ## 5. Dashboard
 
@@ -107,30 +130,34 @@ with the total count reported.
   profile.
 - Ranking of the most exposed firms, colored by group.
 - Pages: project intro, methodology, results, interactive exploration.
-- Built with Streamlit or a static HTML page on GitHub Pages *(TBD)*. Uses
-  only derived results, never raw Ornn prices.
+- Built with Streamlit ([`app.py`](app.py)), with tabs for Intro, Methodology,
+  Results, and Explore. Uses only derived results from `outputs/`, never raw
+  Ornn prices. Shows a warning banner whenever the results come from fake data.
 
-## 6. Planned repo structure
+## 6. Repo structure
 
 ```
 run_all.py              # rebuilds every table and figure from raw inputs
+app.py                  # Streamlit dashboard (reads outputs/ only)
+requirements.txt
 code/
-  01_get_returns.py     # yfinance + Ken French downloads
-  02_load_gpu_prices.py # Ornn data (real or FAKE), compute daily changes
+  config.py             # paths, firms and groups, dates, regression settings
+  00_make_fake_ornn.py  # writes the FAKE Ornn file (seeded; true beta = 0)
+  01_get_returns.py     # yfinance + Ken French downloads (cached, logged)
+  02_load_gpu_prices.py # Ornn data (real or FAKE) -> daily change on trading days
   03_build_panel.py     # merge into firm × day panel (validate=, asserts)
-  04_compute_betas.py   # same-day and lead-lag regressions
-  05_figures_tables.py  # outputs for slides and dashboard
+  04_compute_betas.py   # same-day, FF3, and lead-lag regressions (HAC)
+  05_figures_tables.py  # tables and figures for the slides and dashboard
+  06_hand_checks.py     # one number per step recomputed by hand
 data/
-  raw/                  # downloaded inputs; ornn/ is git-ignored
-  processed/            # cleaned intermediate files
+  README.md             # provenance of every raw input
+  raw/                  # downloaded inputs + pull_log.csv; ornn/ is git-ignored
+  processed/            # git-ignored (contains GPU changes); rebuilt by run_all.py
 outputs/                # every number in the slides and dashboard comes from here
 audits/                 # self-audits before each checkpoint
 reference/              # course rules and project seed
 specs_tried.md          # log of every specification run
-STATUS.md               # status memo
 ```
-
-To reproduce: `python run_all.py` *(TBD)*.
 
 ## 7. Timeline
 
@@ -146,9 +173,17 @@ To reproduce: `python run_all.py` *(TBD)*.
 
 - **Spurious correlation:** trending series look related; we use changes, not levels.
 - **Timing:** GPU prices may be set at a different time than the stock close,
-  and may exist on weekends.
+  and may exist on weekends. v0 *assumes* a price dated *d* is known by the
+  4 pm ET close on *d*. If Ornn sets it later, the same-day beta has
+  look-ahead. Weekend moves are rolled into Monday.
 - **Multiple testing:** the "most exposed" of 30 firms can look exposed by
-  chance. All firms and specifications are logged.
+  chance. All firms and specifications are logged. On fake data (true beta = 0),
+  1 of 8 firms already comes out "significant" at 5%.
+- **Weak control group:** KO and PG had market betas near 0 in 2025–26
+  (confirmed from raw prices). Low-volatility controls have mechanically
+  smaller compute betas, so group comparisons need standardized betas.
+- **Stale prices:** missing GPU days are forward-filled, which biases betas
+  toward zero. Counted, and to be dropped in v1 if the real data has any.
 - **Omitted factors:** the compute beta could be picking up AI sentiment or the
   Nasdaq.
 - **Short sample:** about two years is one market regime.

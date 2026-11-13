@@ -1,6 +1,14 @@
 # Local secrets
 env/.env
 .env
+.streamlit/secrets.toml
 
 # Ornn data is private: never commit it
 data/raw/ornn/
+# Processed files contain daily GPU price CHANGES (which rebuild the private
+# price path), so they are never committed either. run_all.py rebuilds them.
+data/processed/
+
+# Python
+__pycache__/
+.ipynb_checkpoints/

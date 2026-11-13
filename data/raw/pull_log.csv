@@ -1,0 +1,3 @@
+file,source,url_or_call,pulled_utc
+data/raw/stocks/prices.csv,yfinance (auto_adjust=True Close),"yf.download(['NVDA', 'AMD', 'MSFT', 'AMZN', 'META', 'PLTR', 'KO', 'PG', 'SPY'], start=2024-11-01, end=2026-10-31)",2026-11-13 16:39
+data/raw/ken_french/ff3_daily.csv,"Ken French Data Library (F-F Research Data Factors, daily)",https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip,2026-11-13 16:39
