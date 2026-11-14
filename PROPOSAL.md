@@ -90,7 +90,21 @@ Finally, we need to make sure our data is matched correctly. Our code matches GP
 
 To check our calculations, our pipeline already tests for duplicate company-date observations and independently recalculates selected stock returns and regression coefficients. We also keep Ornn's actual rental prices out of our public GitHub repository because the data is private. For now, our simulated data allows us to test the pipeline, but we cannot determine which stocks are actually exposed to GPU costs until we use the real prices.
 
+
 ## 5. Dashboard Mockup
 
-<!-- Dashboard mockup will be added here. -->
+The following screenshots show our proposed dashboard, including compute betas, lead-lag relationships, group comparisons, and regression results.
+
+These images are illustrative mockups rather than findings from actual Ornn rental-price data.
+
+![Dashboard Screenshot 1](dashboard_1.jpg)
+
+![Dashboard Screenshot 2](dashboard_2.jpg)
+
+![Dashboard Screenshot 3](dashboard_3.jpg)
+
+![Dashboard Screenshot 4](dashboard_4.jpg)
+
+![Dashboard Screenshot 5](dashboard_5.jpg)
+
 
