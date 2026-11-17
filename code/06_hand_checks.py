@@ -46,6 +46,14 @@ def main() -> None:
                  f"= {corr:.4f} (want > 0.95: same units, same dates)")
     assert corr > 0.95, lines[-1]
 
+    # Step 1/3: one QQQ excess return (S4 control), from the raw ETF file.
+    etf = pd.read_csv(C.RAW_STOCKS / "etf_prices.csv")
+    q = etf[etf["ticker"] == C.NASDAQ_PROXY].set_index("date")["adj_close"]
+    qprev = q.index[q.index.get_loc(d) - 1]
+    rf = ff.set_index("date").loc[d, "rf"]
+    ours = panel.loc[(panel["ticker"] == "NVDA") & (panel["date"] == pd.Timestamp(d)), "qqq_rf"].item()
+    check(f"{C.NASDAQ_PROXY} excess return on {d}", ours, q[d] / q[qprev] - 1 - rf)
+
     # Step 2: one GPU change on a Monday = ln P(Mon) - ln P(Fri), straight from the raw file.
     src = (pd.concat([pd.read_csv(f) for f in sorted(C.RAW_ORNN_PRIVATE.glob("*.csv"))])
            if C.data_source() == "ORNN" else pd.read_csv(C.ORNN_FAKE))
@@ -60,6 +68,13 @@ def main() -> None:
           panel.loc[panel["date"] == mon, "dgpu"].iloc[0],
           np.log(p[mon.strftime("%Y-%m-%d")]) - np.log(p[fri.strftime("%Y-%m-%d")]),
           private=True)
+    # Same Monday, alternative timing (S5): the price is known one day after its date,
+    # so Monday's level is Sunday's price and Friday's level is Thursday's.
+    sun, thu = mon - pd.Timedelta(days=1), mon - pd.Timedelta(days=4)
+    check(f"GPU change on Monday {mon.date()}, next-day timing (Sun vs Thu price)",
+          panel.loc[panel["date"] == mon, "dgpu_nd"].iloc[0],
+          np.log(p[sun.strftime("%Y-%m-%d")]) - np.log(p[thu.strftime("%Y-%m-%d")]),
+          private=True)
 
     # Step 3: unit of observation.
     lines.append(f"PASS  panel key (ticker, date) unique: {not panel.duplicated(['ticker', 'date']).any()}")
@@ -73,6 +88,15 @@ def main() -> None:
           coef[2], tol=1e-8)
     check("NVDA market beta (S1)", betas.query("ticker == 'NVDA'")["market_beta"].item(),
           coef[1], tol=1e-8)
+
+    # Step 4: NVDA compute beta in S4 (Nasdaq control) and S5 (next-day timing), by numpy.
+    nv_long = long[long["ticker"] == "NVDA"].set_index(["spec", "term"])["coef"]
+    for spec, xcols, gpu_col in [("S4_nasdaq", ["mkt_rf", "qqq_rf"], "dgpu"),
+                                 ("S5_next_day", ["mkt_rf"], "dgpu_nd")]:
+        df = panel[panel["ticker"] == "NVDA"].dropna(subset=["ret_rf", gpu_col] + xcols)
+        X = np.column_stack([np.ones(len(df))] + [df[c] for c in xcols] + [df[gpu_col]])
+        coef, *_ = np.linalg.lstsq(X, df["ret_rf"].to_numpy(), rcond=None)
+        check(f"NVDA compute beta ({spec})", nv_long[(spec, gpu_col)], coef[-1], tol=1e-8)
 
     # Step 5: group average in group_summary equals the mean of firm betas.
     grp = pd.read_csv(C.OUTPUTS / "group_summary.csv").set_index("group")

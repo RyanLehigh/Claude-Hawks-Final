@@ -121,8 +121,12 @@ results table whether or not its estimate is interesting.
    disguise. Check subperiods.
 
 Every specification run is logged in [`specs_tried.md`](specs_tried.md),
-with the total count reported. In v0, steps 1–4 are done (with k = 2 leads and
-lags); step 5 is a simple group average; step 6 has SMB/HML only.
+with the total count reported. So far, steps 1–4 are done (with k = 2 leads and
+lags); step 5 is a simple group average; step 6 has SMB/HML (S2) and a QQQ
+Nasdaq control (S4). Because the GPU timing is not yet confirmed, step 2 is
+estimated both ways: S1 (price known by the close on its date) and S5 (price
+set after the close, so it counts on the next trading day). Both are in
+`outputs/robustness_betas.csv`.
 
 ## 5. Dashboard
 
@@ -146,7 +150,7 @@ code/
   01_get_returns.py     # yfinance + Ken French downloads (cached, logged)
   02_load_gpu_prices.py # Ornn data (real or FAKE) -> daily change on trading days
   03_build_panel.py     # merge into firm × day panel (validate=, asserts)
-  04_compute_betas.py   # same-day, FF3, and lead-lag regressions (HAC)
+  04_compute_betas.py   # S1-S5: same-day, FF3, lead-lag, Nasdaq control, alt. timing (HAC)
   05_figures_tables.py  # tables and figures for the slides and dashboard
   06_hand_checks.py     # one number per step recomputed by hand
 data/
@@ -175,7 +179,10 @@ specs_tried.md          # log of every specification run
 - **Timing:** GPU prices may be set at a different time than the stock close,
   and may exist on weekends. v0 *assumes* a price dated *d* is known by the
   4 pm ET close on *d*. If Ornn sets it later, the same-day beta has
-  look-ahead. Weekend moves are rolled into Monday.
+  look-ahead. Weekend moves are rolled into Monday. Until Ornn confirms the
+  timestamp, we also report S5, which assumes the price is set after the close.
+  On fake data, 3 of 8 compute betas change sign between S1 and S5, so the
+  timing matters.
 - **Multiple testing:** the "most exposed" of 30 firms can look exposed by
   chance. All firms and specifications are logged. On fake data (true beta = 0),
   1 of 8 firms already comes out "significant" at 5%.
@@ -185,7 +192,9 @@ specs_tried.md          # log of every specification run
 - **Stale prices:** missing GPU days are forward-filled, which biases betas
   toward zero. Counted, and to be dropped in v1 if the real data has any.
 - **Omitted factors:** the compute beta could be picking up AI sentiment or the
-  Nasdaq.
+  Nasdaq. S4 controls for the QQQ excess return. QQQ is highly correlated with
+  the market, so S4 tests whether the GPU coefficient survives, not what the
+  Nasdaq coefficient is. An AI-specific basket is not controlled for yet.
 - **Short sample:** about two years is one market regime.
 - **Survivorship / look-ahead:** firm list chosen from today's knowledge of
   which companies are "AI stocks."

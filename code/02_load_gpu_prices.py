@@ -1,11 +1,17 @@
 """Step 2: load the GPU price (real Ornn if present, else FAKE) and turn it
 into a daily CHANGE on the stock-trading calendar.
 
-Timing rule (v0 assumption, see README "Threats"):
-  The GPU price dated d is treated as known by the 4:00 pm ET stock close on d.
-  For trading day t, dgpu_t = ln P(t) - ln P(previous trading day).
-  So Saturday/Sunday/holiday moves roll into the next trading day's change.
-  If the price on a trading day is missing, the last earlier price is used.
+Timing rules (the true one is UNCONFIRMED; see config.py and README "Threats"):
+  dgpu    ("same_day", main): the GPU price dated d is known by the 4:00 pm ET
+          stock close on d. The level on trading day t is the last price dated
+          on or before t, and dgpu_t = ln level(t) - ln level(previous trading day).
+  dgpu_nd ("next_day", alternative, audit A3): the price dated d is set after
+          the close, so it is first known at the close of d + 1 calendar day.
+          The level on trading day t is the last price dated on or before t - 1
+          calendar day. E.g. Monday's level is Sunday's price, Friday's is
+          Thursday's.
+  Either way, Saturday/Sunday/holiday moves roll into the next trading day's
+  change, and a missing price is filled with the last earlier one.
 
 Leads and lags are built here, on the one-row-per-date series, so they can
 never shift across firms by mistake.
@@ -53,16 +59,23 @@ def main() -> None:
     stale = (~daily["date"].isin(gpu["date"])).sum()
     if stale:
         print(f"note: {stale} trading days had no GPU price that day; used the last earlier price")
+
+    # Alternative timing: a price dated d becomes usable one calendar day later.
+    shifted = gpu.assign(date=gpu["date"] + pd.Timedelta(days=1)).rename(
+        columns={"gpu_price": "gpu_price_nd"})
+    daily = pd.merge_asof(daily, shifted, on="date", direction="backward")
+
     daily = daily.dropna(subset=["gpu_price"])
 
     daily["dgpu"] = np.log(daily["gpu_price"]).diff()
+    daily["dgpu_nd"] = np.log(daily["gpu_price_nd"]).diff()
     for k in range(1, C.LEADLAG_K + 1):
         daily[f"dgpu_lag{k}"] = daily["dgpu"].shift(k)     # GPU move k trading days BEFORE t
         daily[f"dgpu_lead{k}"] = daily["dgpu"].shift(-k)   # GPU move k trading days AFTER t
 
     assert daily["date"].is_unique
     C.PROCESSED.mkdir(parents=True, exist_ok=True)
-    out = daily.drop(columns="gpu_price")   # keep only changes, not price levels
+    out = daily.drop(columns=["gpu_price", "gpu_price_nd"])   # keep only changes, not levels
     out.to_csv(C.PROCESSED / "gpu_daily.csv", index=False)
     print(f"wrote data/processed/gpu_daily.csv: {out.shape}, "
           f"{out['date'].min().date()} to {out['date'].max().date()}")

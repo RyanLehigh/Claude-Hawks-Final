@@ -4,13 +4,17 @@ Specifications (every one is also listed in specs_tried.md):
   S1 same_day     ret_rf ~ mkt_rf + dgpu
   S2 same_day_ff3 ret_rf ~ mkt_rf + smb + hml + dgpu
   S3 lead_lag     ret_rf ~ mkt_rf + dgpu_lag2 + dgpu_lag1 + dgpu + dgpu_lead1 + dgpu_lead2
+  S4 nasdaq       ret_rf ~ mkt_rf + qqq_rf + dgpu       (audit A2: Nasdaq/tech control)
+  S5 next_day     ret_rf ~ mkt_rf + dgpu_nd             (audit A3: alternative GPU timing)
 
 OLS with Newey-West (HAC) standard errors. Every firm is reported, whatever
 its estimate.
 
 Outputs:
-  outputs/betas_long.csv   one row = firm x spec x term
-  outputs/compute_betas.csv one row = firm (S1 compute beta + CI), the main result
+  outputs/betas_long.csv          one row = firm x spec x term
+  outputs/compute_betas.csv       one row = firm (S1 compute beta + CI), the main result
+  outputs/robustness_betas.csv    one row = firm x spec: the compute beta in every
+                                  same-day-style spec (S1, S2, S4, S5), side by side
 """
 import numpy as np
 import pandas as pd
@@ -24,7 +28,14 @@ SPECS = {
     "S1_same_day": "ret_rf ~ mkt_rf + dgpu",
     "S2_same_day_ff3": "ret_rf ~ mkt_rf + smb + hml + dgpu",
     "S3_lead_lag": "ret_rf ~ mkt_rf + " + " + ".join(lags + ["dgpu"] + leads),
+    "S4_nasdaq": "ret_rf ~ mkt_rf + qqq_rf + dgpu",
+    "S5_next_day": "ret_rf ~ mkt_rf + dgpu_nd",
 }
+# The compute-beta term in each single-coefficient spec (S3 has a whole profile instead).
+COMPUTE_TERM = {"S1_same_day": "dgpu", "S2_same_day_ff3": "dgpu",
+                "S4_nasdaq": "dgpu", "S5_next_day": "dgpu_nd"}
+# GPU timing rule behind each spec (see config.py)
+TIMING = {s: (C.GPU_TIMING_ALT if s == "S5_next_day" else C.GPU_TIMING_MAIN) for s in SPECS}
 # k = days the GPU move is shifted relative to the stock return (negative = GPU moved first)
 K_OF_TERM = {"dgpu": 0,
              **{f"dgpu_lag{k}": -k for k in range(1, C.LEADLAG_K + 1)},
@@ -68,6 +79,7 @@ def main() -> None:
             rows.append(out)
     long = pd.concat(rows, ignore_index=True)
     long["k"] = long["term"].map(K_OF_TERM)
+    long["gpu_timing"] = long["spec"].map(TIMING)
     long["data_source"] = source
     long["sample_start"] = panel["date"].min().date().isoformat()
     long["sample_end"] = panel["date"].max().date().isoformat()
@@ -91,11 +103,23 @@ def main() -> None:
     assert main_tbl["ticker"].is_unique and len(main_tbl) == len(C.FIRMS)
     main_tbl.to_csv(C.OUTPUTS / "compute_betas.csv", index=False)
 
+    # Robustness: the compute beta from every single-coefficient spec, one row per firm x spec.
+    is_compute = long["term"] == long["spec"].map(COMPUTE_TERM)
+    rob = (long[is_compute]
+           [["ticker", "group", "spec", "gpu_timing", "term", "coef", "se", "p",
+             "ci_lo", "ci_hi", "nobs", "data_source"]]
+           .rename(columns={"coef": "compute_beta"})
+           .sort_values(["group", "ticker", "spec"]).reset_index(drop=True))
+    assert len(rob) == len(C.FIRMS) * len(COMPUTE_TERM), "a firm x spec is missing"
+    rob.to_csv(C.OUTPUTS / "robustness_betas.csv", index=False)
+
     n_reg = long.groupby(["ticker", "spec"]).ngroups
     print(f"ran {n_reg} regressions ({len(SPECS)} specs x {panel['ticker'].nunique()} firms), "
           f"data_source={source}")
     print(main_tbl[["ticker", "group", "market_beta", "compute_beta", "se", "p"]]
           .round(3).to_string(index=False))
+    print("\ncompute beta by spec:")
+    print(rob.pivot(index="ticker", columns="spec", values="compute_beta").round(3).to_string())
 
 
 if __name__ == "__main__":

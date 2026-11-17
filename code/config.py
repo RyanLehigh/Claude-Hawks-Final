@@ -31,6 +31,9 @@ FIRMS = {
     "PG": "Control",
 }
 MARKET_PROXY = "SPY"   # downloaded for a hand check; the regressions use Ken French Mkt-RF
+# Extra control factor (audit A2): is a compute beta just a Nasdaq/tech beta?
+# Kept in its own raw file so adding it does not re-download (and move) prices.csv.
+NASDAQ_PROXY = "QQQ"
 
 START = "2024-11-01"   # first stock date requested
 END = "2026-10-31"     # last stock date requested (exclusive in yfinance)
@@ -42,6 +45,20 @@ ORNN_DATE_COL = "date"
 ORNN_SERIES_COL = "gpu_model"
 ORNN_PRICE_COL = "price_usd_per_gpu_hour"
 ORNN_SERIES = "H100"   # the one GPU price series used in v0
+
+# ---- GPU price timing (audit A3) -------------------------------------------
+# When is the price dated d set, relative to the 4:00 pm ET stock close?
+#   "same_day": set before the close on d -> it belongs to trading day d.
+#               Main specification (S1-S4), column dgpu.
+#   "next_day": set after the close on d -> first known at the close of d + 1
+#               calendar day, so it belongs to the next trading day on or after d + 1.
+#               Alternative specification (S5), column dgpu_nd.
+# UNCONFIRMED: we are asking Ornn for the exact time and time zone of each daily
+# print. Until then both mappings are estimated and reported, labeled.
+# Once confirmed, set GPU_TIMING_CONFIRMED and make that mapping the main spec.
+GPU_TIMING_MAIN = "same_day"
+GPU_TIMING_ALT = "next_day"
+GPU_TIMING_CONFIRMED = False
 
 # ---- regressions -----------------------------------------------------------
 HAC_LAGS = 5           # Newey-West lags for the standard errors
