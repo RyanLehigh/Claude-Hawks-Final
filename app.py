@@ -23,13 +23,20 @@ def load():
     return (pd.read_csv(OUT / "compute_betas.csv"),
             pd.read_csv(OUT / "betas_long.csv"),
             pd.read_csv(OUT / "group_summary.csv"),
-            pd.read_csv(OUT / "sample_summary.csv").iloc[0])
+            pd.read_csv(OUT / "sample_summary.csv").iloc[0],
+            pd.read_csv(OUT / "robustness_betas.csv"))
 
 
-betas, long, groups, sample = load()
+betas, long, groups, sample, robust = load()
+SPEC_LABEL = {
+    "S1_same_day": "S1: market (main)",
+    "S2_same_day_ff3": "S2: + size & value",
+    "S4_nasdaq": "S4: + Nasdaq (QQQ)",
+    "S5_next_day": "S5: next-day GPU timing",
+}
 
 st.title("Which stocks are exposed to GPU prices?")
-st.caption("FIN 377 final project · Claude-Hawks · data partner: Ornn · v0 skeleton")
+st.caption("FIN 331 final project · Claude-Hawks · data partner: Ornn · v0 skeleton")
 if sample["data_source"] == "FAKE":
     st.warning("**These results use FAKE GPU prices** (a random walk unrelated to any stock), "
                "so every true compute beta is zero. Any estimate that looks significant here is "
@@ -72,7 +79,12 @@ with method:
     st.markdown(
         "4. **Robustness (S2):** add the size and value factors (SMB, HML).\n"
         "5. **Leads and lags (S3):** GPU changes from *t−2* to *t+2*.\n"
-        "6. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
+        "6. **Nasdaq control (S4):** add the QQQ excess return, so a compute beta can't just "
+        "be a tech or AI-sentiment beta in disguise.\n"
+        "7. **Timing check (S5):** we don't yet know what time Ornn sets each day's price. S5 "
+        "assumes it is set *after* the close, so a price dated *d* counts on the next "
+        "trading day. Until Ornn confirms, we report both S1 and S5.\n"
+        "8. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
         "reported (see `specs_tried.md`).")
 
 # ---------------------------------------------------------------- Results
@@ -100,14 +112,24 @@ with results:
     st.subheader("By group (equal-weighted average of firm betas)")
     st.dataframe(groups.round(3), hide_index=True, width="stretch")
 
+    st.subheader("Robustness: compute beta in every specification")
+    st.markdown("If a firm's compute beta is real, it should survive the Nasdaq control (S4). "
+                "If it flips sign under the other timing rule (S5), the result depends on "
+                "when Ornn sets its price, which we haven't confirmed yet.")
+    wide = (robust.assign(spec=robust["spec"].map(SPEC_LABEL))
+            .pivot(index=["ticker", "group"], columns="spec", values="compute_beta")
+            [list(SPEC_LABEL.values())].reset_index().round(3))
+    st.dataframe(wide, hide_index=True, width="stretch")
+
 # ---------------------------------------------------------------- Explore
 with explore:
     st.header("Pick a firm")
     c1, c2 = st.columns([1, 2])
     with c1:
         firm = st.selectbox("Firm", betas.sort_values(["group", "ticker"])["ticker"])
-        spec = st.radio("Specification", ["S1_same_day", "S2_same_day_ff3"])
-        row = long.query("ticker == @firm and spec == @spec and term == 'dgpu'").iloc[0]
+        spec = st.radio("Specification", list(SPEC_LABEL), format_func=SPEC_LABEL.get)
+        row = robust.query("ticker == @firm and spec == @spec").iloc[0].rename(
+            {"compute_beta": "coef"})
         st.metric("Compute beta", f"{row['coef']:.3f}",
                   help="Coefficient on the daily log change in the GPU price")
         st.write(f"95% CI: [{row['ci_lo']:.3f}, {row['ci_hi']:.3f}]  \n"

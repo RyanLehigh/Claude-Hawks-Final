@@ -9,6 +9,7 @@ Every download is recorded in data/raw/pull_log.csv (source, URL, pull time).
 Outputs (raw, committed):
   data/raw/stocks/prices.csv            one row = ticker x trading day (adjusted close)
   data/raw/ken_french/ff3_daily.csv     one row = trading day (factors, in DECIMALS)
+  data/raw/stocks/etf_prices.csv        one row = ETF x trading day (QQQ, adjusted close)
 """
 import io
 import sys
@@ -61,6 +62,31 @@ def get_prices(refresh: bool) -> None:
     print(f"downloaded {path.relative_to(C.ROOT)}: {prices.shape}")
 
 
+def get_etfs(refresh: bool) -> None:
+    """Nasdaq-100 ETF for the Nasdaq/tech control (spec S4). Separate file and
+    cache from prices.csv, so adding it leaves the firm prices untouched."""
+    path = C.RAW_STOCKS / "etf_prices.csv"
+    if path.exists() and not refresh:
+        print(f"cached: {path.relative_to(C.ROOT)}")
+        return
+    C.RAW_STOCKS.mkdir(parents=True, exist_ok=True)
+    tickers = [C.NASDAQ_PROXY]
+    raw = yf.download(tickers, start=C.START, end=C.END, auto_adjust=True,
+                      progress=False, threads=False)
+    etf = (raw["Close"].stack().rename("adj_close").reset_index()
+           .rename(columns={"Date": "date", "Ticker": "ticker"}))
+    etf["date"] = pd.to_datetime(etf["date"]).dt.strftime("%Y-%m-%d")
+    etf = etf.sort_values(["ticker", "date"]).reset_index(drop=True)
+
+    assert not etf.duplicated(["ticker", "date"]).any(), "duplicate ticker-date"
+    assert set(etf["ticker"]) == set(tickers), f"no data for {set(tickers) - set(etf['ticker'])}"
+
+    etf.to_csv(path, index=False)
+    log_pull(path, "yfinance (auto_adjust=True Close)",
+             f"yf.download({tickers}, start={C.START}, end={C.END})")
+    print(f"downloaded {path.relative_to(C.ROOT)}: {etf.shape}")
+
+
 def get_ff(refresh: bool) -> None:
     path = C.RAW_FF / "ff3_daily.csv"
     if path.exists() and not refresh:
@@ -101,6 +127,7 @@ def get_ff(refresh: bool) -> None:
 def main() -> None:
     refresh = "--refresh" in sys.argv
     get_prices(refresh)
+    get_etfs(refresh)
     get_ff(refresh)
 
 
