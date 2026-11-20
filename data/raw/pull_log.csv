@@ -1,5 +1,5 @@
 file,source,url_or_call,pulled_utc
-data/raw/stocks/prices.csv,yfinance (auto_adjust=True Close),"yf.download(['NVDA', 'AMD', 'MSFT', 'AMZN', 'META', 'PLTR', 'KO', 'PG', 'SPY'], start=2024-11-01, end=2026-10-31)",2026-11-13 16:39
-data/raw/ken_french/ff3_daily.csv,"Ken French Data Library (F-F Research Data Factors, daily)",https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip,2026-11-13 16:39
-data/raw/stocks/etf_prices.csv,yfinance (auto_adjust=True Close),"yf.download(['QQQ'], start=2024-11-01, end=2026-10-31)",2026-11-17 16:57
 data/raw/ornn/ornn_h100.csv,Ornn Data API (private; key required),GET https://api.ornnai.com/api/gpu/H100 SXM/history-simple startDate=2024-01-01 endDate=2026-11-20 granularity=daily,2026-11-20 19:41
+data/raw/stocks/prices.csv,yfinance (auto_adjust=True Close),"yf.download(['NVDA', 'AMD', 'AVGO', 'TSM', 'INTC', 'MU', 'MRVL', 'ARM', 'AMZN', 'MSFT', 'GOOGL', 'ORCL', 'CRWV', 'META', 'PLTR', 'CRM', 'NOW', 'SNOW', 'ADBE', 'AI', 'KO', 'PG', 'JNJ', 'WMT', 'PEP', 'MCD', 'XOM', 'DUK', 'SPY'], start=2024-06-01, end=2026-11-20)",2026-11-20 19:44
+data/raw/stocks/etf_prices.csv,yfinance (auto_adjust=True Close),"yf.download(['QQQ'], start=2024-06-01, end=2026-11-20)",2026-11-20 19:44
+data/raw/ken_french/ff3_daily.csv,"Ken French Data Library (F-F Research Data Factors, daily)",https://mba.tuck.dartmouth.edu/pages/faculty/ken.french/ftp/F-F_Research_Data_Factors_daily_CSV.zip,2026-11-20 19:44

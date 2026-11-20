@@ -7,15 +7,17 @@ that builds markets and price benchmarks for GPU compute.
 - Dashboard repo: this repo (`app.py` reads only `outputs/`)
 - Presentation: *TBD (file in this repo)*
 
-> **Status: v0 (Checkpoint 2).** The whole pipeline runs end to end on a small
-> sample (8 firms, 2 per group, Nov 2024 – Sep 2026) using a **fake** GPU price
-> file, because the real Ornn data hasn't arrived yet. Results on fake data are
-> noise by design. Self-audit: [`audits/01_self_audit.md`](audits/01_self_audit.md).
+> **Status: v1 (Checkpoint 4).** Full sample on **real Ornn data**: 28 firms in
+> four groups, 569 trading days (2024-06-25 to 2026-09-30), 5 specifications =
+> 140 regressions. GPU timing is now **next-day** (see §4 and §8). Auditors
+> without an Ornn key get the fake file automatically. v0 self-audit:
+> [`audits/01_self_audit.md`](audits/01_self_audit.md).
 
 ## How to run
 
 ```bash
 pip install -r requirements.txt
+python code/00b_get_ornn.py    # only with an Ornn key in env/.env: downloads the real GPU data
 python run_all.py              # rebuilds data/processed/ and outputs/ from data/raw/
 python run_all.py --refresh    # same, but re-downloads stock prices and factors first
 streamlit run app.py           # dashboard, reads outputs/ only
@@ -45,7 +47,7 @@ depend on GPUs.
 
 | Input | Source | Frequency | Public? |
 |-------|--------|-----------|---------|
-| GPU rental prices | Ornn (through the professor) | Daily, ~2 years | **No** |
+| GPU rental prices | Ornn Data API, H100 SXM daily index (API key required) | Daily incl. weekends, 2024-06-23 → | **No** |
 | Stock prices / returns | yfinance | Daily | Yes |
 | Market and factor returns | Ken French Data Library | Daily | Yes |
 
@@ -57,20 +59,25 @@ it) is recorded in [`data/README.md`](data/README.md).
 Ornn's data is **never posted publicly**: not in this repo, not in the
 dashboard, not anywhere else.
 
-- Real Ornn files live in `data/raw/ornn/`, which is git-ignored. Get them from
-  the professor.
+- Real Ornn files live in `data/raw/ornn/`, which is git-ignored.
+  `code/00b_get_ornn.py` downloads them with an API key kept in the git-ignored
+  `env/.env`.
 - So the pipeline runs for anyone, the repo includes a small **fake** file with
   the same columns (`data/raw/ornn_FAKE.csv`). The pipeline uses the real file
   when present and falls back to the fake one otherwise.
 - `data/processed/` is git-ignored too: it holds daily GPU price *changes*,
   which would rebuild Ornn's price path. Only regression results go in `outputs/`.
 
-### Open questions about the Ornn data
+### What we learned from the Ornn data (v1)
 
-- Which GPU models, regions, and rental terms are included?
-- At what time of day is each day's price set, relative to the 4:00 pm ET stock
-  close?
-- Are there weekend and holiday prices?
+- **Weekends:** yes, there is a price every calendar day (880 days, no gaps).
+  Weekend moves roll into Monday.
+- **Time of day:** every daily value is stamped at midnight New York time, and
+  Ornn's docs say the index is an hourly series averaged to a daily value. So
+  the value dated *d* includes hours after the 4 pm close, and v1 counts it on
+  the next trading day. *Still to confirm with Ornn in writing.*
+- **Still open:** which regions and rental terms feed the H100 index (the API
+  only reports a "global" region).
 
 ## 3. Dataset
 
@@ -81,12 +88,13 @@ dashboard, not anywhere else.
 
 ### Sample
 
-**v0 (now):** 8 firms, 2 per group (NVDA, AMD · MSFT, AMZN · META, PLTR · KO, PG),
-2024-11-04 to 2026-09-30 (477 trading days). The end date is set by the Ken
-French daily factors, which currently stop at 2026-09-30.
+**v0:** 8 firms, 2 per group, 2024-11-04 to 2026-09-30, fake GPU data.
 
-**MVP (v1):** about 30 firms in four groups, over the ~2 years the Ornn data
-covers. Draft list, to be finalized:
+**v1 (now):** the 28 firms below, 2024-06-25 to 2026-09-30 (569 trading days,
+15,741 firm-days). The start is set by the Ornn data (first price 2024-06-23),
+the end by the Ken French daily factors, which currently stop at 2026-09-30.
+The list is the draft list from the proposal, unchanged, and was committed
+before the first real-data run:
 
 | Group | Candidate tickers |
 |-------|-------------------|
@@ -123,9 +131,9 @@ results table whether or not its estimate is interesting.
 Every specification run is logged in [`specs_tried.md`](specs_tried.md),
 with the total count reported. So far, steps 1–4 are done (with k = 2 leads and
 lags); step 5 is a simple group average; step 6 has SMB/HML (S2) and a QQQ
-Nasdaq control (S4). Because the GPU timing is not yet confirmed, step 2 is
-estimated both ways: S1 (price known by the close on its date) and S5 (price
-set after the close, so it counts on the next trading day). Both are in
+Nasdaq control (S4). For step 2, v1 uses **next-day** timing in S1–S4 (the
+price dated *d* first counts at the close of *d* + 1) and reports the same-day
+version as S5 to show how much timing matters. Both are in
 `outputs/robustness_betas.csv`.
 
 ## 5. Dashboard
@@ -147,10 +155,11 @@ requirements.txt
 code/
   config.py             # paths, firms and groups, dates, regression settings
   00_make_fake_ornn.py  # writes the FAKE Ornn file (seeded; true beta = 0)
+  00b_get_ornn.py       # downloads the REAL Ornn data via API (needs a key; run by hand)
   01_get_returns.py     # yfinance + Ken French downloads (cached, logged)
   02_load_gpu_prices.py # Ornn data (real or FAKE) -> daily change on trading days
   03_build_panel.py     # merge into firm × day panel (validate=, asserts)
-  04_compute_betas.py   # S1-S5: same-day, FF3, lead-lag, Nasdaq control, alt. timing (HAC)
+  04_compute_betas.py   # S1-S5: main, FF3, lead-lag, Nasdaq control, alt. timing (HAC)
   05_figures_tables.py  # tables and figures for the slides and dashboard
   06_hand_checks.py     # one number per step recomputed by hand
 data/
@@ -176,21 +185,25 @@ specs_tried.md          # log of every specification run
 ## 8. Threats to validity
 
 - **Spurious correlation:** trending series look related; we use changes, not levels.
-- **Timing:** GPU prices may be set at a different time than the stock close,
-  and may exist on weekends. v0 *assumes* a price dated *d* is known by the
-  4 pm ET close on *d*. If Ornn sets it later, the same-day beta has
-  look-ahead. Weekend moves are rolled into Monday. Until Ornn confirms the
-  timestamp, we also report S5, which assumes the price is set after the close.
-  On fake data, 3 of 8 compute betas change sign between S1 and S5, so the
-  timing matters.
-- **Multiple testing:** the "most exposed" of 30 firms can look exposed by
+- **Timing:** Ornn stamps each daily value at midnight New York time and
+  describes it as an average of hourly prints, so the value dated *d* includes
+  after-close hours. v1 counts it on the next trading day (S1–S4) to avoid
+  look-ahead; the same-day version (S5) is reported only for comparison. This
+  is inferred from timestamps and docs, not yet confirmed by Ornn. If the
+  averaging window ended before 4 pm, next-day timing would be stale rather
+  than look-ahead, which biases betas toward zero. Weekend moves roll into Monday.
+- **Multiple testing:** the "most exposed" of 28 firms can look exposed by
   chance. All firms and specifications are logged. On fake data (true beta = 0),
-  1 of 8 firms already comes out "significant" at 5%.
+  1 of 8 firms came out "significant" at 5%. On real data, 2 of 28 do in S1
+  (NOW, ADBE), about what chance alone would give (1.4 expected); no
+  multiple-testing correction has been applied yet.
 - **Weak control group:** KO and PG had market betas near 0 in 2025–26
   (confirmed from raw prices). Low-volatility controls have mechanically
   smaller compute betas, so group comparisons need standardized betas.
-- **Stale prices:** missing GPU days are forward-filled, which biases betas
-  toward zero. Counted, and to be dropped in v1 if the real data has any.
+- **Stale prices:** missing GPU days would be forward-filled, which biases
+  betas toward zero. The real H100 series has no missing days (880 of 880), so
+  nothing is forward-filled in v1. Whether Ornn's index itself moves slowly
+  (smoothing within its hourly average) is not tested.
 - **Omitted factors:** the compute beta could be picking up AI sentiment or the
   Nasdaq. S4 controls for the QQQ excess return. QQQ is highly correlated with
   the market, so S4 tests whether the GPU coefficient survives, not what the
