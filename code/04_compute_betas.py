@@ -21,6 +21,7 @@ Outputs:
 import numpy as np
 import pandas as pd
 import statsmodels.formula.api as smf
+from statsmodels.stats.multitest import multipletests
 
 import config as C
 
@@ -101,6 +102,16 @@ def main() -> None:
     main_tbl = main_tbl.merge(mkt, on="ticker", how="left", validate="1:1")
     # Magnitude: stock return response to a 10% rise in the GPU price, in basis points.
     main_tbl["bps_per_10pct_gpu_move"] = main_tbl["compute_beta"] * np.log(1.10) * 1e4
+    # Volatility-scaled beta: a 1-sd GPU move, in sd's of the stock's excess return.
+    # Makes low-volatility controls comparable to high-volatility chipmakers.
+    used = panel.dropna(subset=["ret_rf", "mkt_rf", "dgpu"])
+    sds = (used.groupby("ticker")
+           .agg(sd_ret=("ret_rf", "std"), sd_gpu=("dgpu", "std")).reset_index())
+    main_tbl = main_tbl.merge(sds, on="ticker", how="left", validate="1:1")
+    main_tbl["std_compute_beta"] = main_tbl["compute_beta"] * main_tbl["sd_gpu"] / main_tbl["sd_ret"]
+    main_tbl = main_tbl.drop(columns=["sd_ret", "sd_gpu"])   # sd_gpu would describe Ornn data
+    # Multiple testing across the firms: Benjamini-Hochberg false discovery rate.
+    main_tbl["p_bh"] = multipletests(main_tbl["p"], method="fdr_bh")[1]
     main_tbl = main_tbl.sort_values("compute_beta", ascending=False).reset_index(drop=True)
 
     assert main_tbl["ticker"].is_unique and len(main_tbl) == len(C.FIRMS)
@@ -119,7 +130,8 @@ def main() -> None:
     n_reg = long.groupby(["ticker", "spec"]).ngroups
     print(f"ran {n_reg} regressions ({len(SPECS)} specs x {panel['ticker'].nunique()} firms), "
           f"data_source={source}")
-    print(main_tbl[["ticker", "group", "market_beta", "compute_beta", "se", "p"]]
+    print(main_tbl[["ticker", "group", "market_beta", "compute_beta", "std_compute_beta",
+                    "se", "p", "p_bh"]]
           .round(3).to_string(index=False))
     print("\ncompute beta by spec:")
     print(rob.pivot(index="ticker", columns="spec", values="compute_beta").round(3).to_string())

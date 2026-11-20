@@ -17,6 +17,7 @@ STEPS = [
     "02_load_gpu_prices.py",
     "03_build_panel.py",
     "04_compute_betas.py",
+    "04b_group_tests.py",
     "05_figures_tables.py",
     "06_hand_checks.py",
 ]

@@ -86,7 +86,10 @@ with method:
         "7. **Timing check (S5):** the same regression, but counting the price dated *d* on "
         "day *d* itself. That uses hours after the close (look-ahead), so it is reported only "
         "to show how much the timing choice matters.\n"
-        "8. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
+        "8. **Groups vs control (S6):** regress the group-minus-control portfolio return on "
+        "the market and the GPU change. Firm p-values are also adjusted for multiple testing "
+        "(Benjamini-Hochberg).\n"
+        "9. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
         "reported (see `specs_tried.md`).")
 
 # ---------------------------------------------------------------- Results
@@ -105,14 +108,20 @@ with results:
 
     st.subheader("Table")
     st.dataframe(
-        b[["ticker", "group", "market_beta", "compute_beta", "se", "p",
-           "bps_per_10pct_gpu_move", "nobs"]].round(3),
+        b[["ticker", "group", "market_beta", "compute_beta", "se", "p", "p_bh",
+           "std_compute_beta", "bps_per_10pct_gpu_move", "nobs"]].round(3),
         hide_index=True, width="stretch")
     st.caption("`bps_per_10pct_gpu_move`: the stock's return, in basis points, on the trading "
-               "day a 10% rise in the GPU price becomes known.")
+               "day a 10% rise in the GPU price becomes known. `p_bh`: p-value adjusted for "
+               f"testing {len(b)} firms at once (Benjamini-Hochberg). `std_compute_beta`: a "
+               "1-standard-deviation GPU move, in standard deviations of the stock's return.")
 
-    st.subheader("By group (equal-weighted average of firm betas)")
-    st.dataframe(groups.round(3), hide_index=True, width="stretch")
+    st.subheader("By group, and tested against the control group")
+    st.dataframe(groups.drop(columns="data_source").round(3), hide_index=True, width="stretch")
+    st.caption("`diff_vs_control` and its p-value come from one regression per group: the daily "
+               "return of an equal-weighted group portfolio minus the control portfolio, on the "
+               "market and the GPU change (HAC SEs). This accounts for every firm sharing the "
+               "same GPU series.")
 
     st.subheader("Robustness: compute beta in every specification")
     st.markdown("If a firm's compute beta is real, it should survive the Nasdaq control (S4). "

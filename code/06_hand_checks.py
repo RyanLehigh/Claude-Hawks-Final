@@ -111,6 +111,34 @@ def main() -> None:
     check("Chipmaker mean compute beta", grp.loc["Chipmaker", "mean_compute_beta"],
           chip.sum() / len(chip))
 
+    # Step 4: Benjamini-Hochberg p for the firm with the smallest p, by hand:
+    # p_bh = min over j >= rank of (p_(j) * n / j), capped at 1.
+    ps = betas["p"].sort_values().to_numpy()
+    n = len(ps)
+    bh_first = min(1.0, min(ps[j] * n / (j + 1) for j in range(n)))
+    check("BH-adjusted p of the most significant firm",
+          betas.loc[betas["p"].idxmin(), "p_bh"], bh_first, tol=1e-12)
+
+    # Step 4: NVDA volatility-scaled beta = beta * sd(dgpu) / sd(ret_rf), by hand.
+    df = panel[panel["ticker"] == "NVDA"].dropna(subset=["ret_rf", "mkt_rf", "dgpu"])
+    nv = betas.query("ticker == 'NVDA'").iloc[0]
+    check("NVDA volatility-scaled compute beta", nv["std_compute_beta"],
+          nv["compute_beta"] * df["dgpu"].std() / df["ret_rf"].std(), tol=1e-12)
+
+    # Step 4b: AI-heavy software minus Control portfolio, rebuilt with a plain loop over
+    # dates and solved with numpy (no groupby/unstack, no statsmodels).
+    gt = pd.read_csv(C.OUTPUTS / "group_tests.csv").set_index("group")
+    ys, xs = [], []
+    for d, day in panel.groupby("date"):
+        a = day.loc[day["group"] == "AI-heavy software", "ret_rf"]
+        c = day.loc[day["group"] == "Control", "ret_rf"]
+        if len(a) and len(c):
+            ys.append(a.sum() / len(a) - c.sum() / len(c))
+            xs.append([1.0, day["mkt_rf"].iloc[0], day["dgpu"].iloc[0]])
+    coef, *_ = np.linalg.lstsq(np.array(xs), np.array(ys), rcond=None)
+    check("AI-heavy software minus Control compute beta (S6)",
+          gt.loc["AI-heavy software", "diff_compute_beta"], coef[2], tol=1e-8)
+
     # Sanity (Quick Reference ABCD): a beta near 0 for a big TECH stock usually means
     # misaligned dates. Control (staples) betas can truly be near 0, so they are only reported.
     tech = betas[betas["group"] != "Control"].set_index("ticker")["market_beta"]
@@ -119,7 +147,7 @@ def main() -> None:
                  + ", ".join(f"{t} {b:.2f}" for t, b in tech.items()))
     assert ok, lines[-1]
     ctrl = betas[betas["group"] == "Control"].set_index("ticker")["market_beta"]
-    lines.append("INFO  control market betas (low in 2025-26, confirmed from raw prices): "
+    lines.append("INFO  control market betas (near 0 in 2024-26: real, see README Threats): "
                  + ", ".join(f"{t} {b:.2f}" for t, b in ctrl.items()))
 
     (C.OUTPUTS / "hand_checks.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")

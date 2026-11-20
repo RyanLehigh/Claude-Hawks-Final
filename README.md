@@ -130,11 +130,39 @@ results table whether or not its estimate is interesting.
 
 Every specification run is logged in [`specs_tried.md`](specs_tried.md),
 with the total count reported. So far, steps 1–4 are done (with k = 2 leads and
-lags); step 5 is a simple group average; step 6 has SMB/HML (S2) and a QQQ
+lags); step 5 is a group-minus-control portfolio regression (S6) plus
+Benjamini-Hochberg adjusted firm p-values; step 6 has SMB/HML (S2) and a QQQ
 Nasdaq control (S4). For step 2, v1 uses **next-day** timing in S1–S4 (the
 price dated *d* first counts at the close of *d* + 1) and reports the same-day
 version as S5 to show how much timing matters. Both are in
 `outputs/robustness_betas.csv`.
+
+## 4b. Results (v1)
+
+All numbers below come from `outputs/compute_betas.csv`,
+`outputs/group_summary.csv` and `outputs/group_tests.csv`.
+
+- **No single firm is significantly exposed once we account for testing 28
+  firms.** In S1, NOW (p = 0.024) and ADBE (p = 0.038) pass 5% on their own,
+  about what chance alone predicts (1.4 of 28). After the Benjamini-Hochberg
+  correction, the smallest adjusted p-value is 0.53.
+- **Size, where there is a signal:** the largest betas (NOW, SNOW, ADBE, ORCL,
+  about 0.06–0.08) mean a stock return of roughly +53 to +73 bp on the day a
+  10% rise in the H100 rental price becomes known.
+- **Groups vs the control group (S6):** AI-heavy software +0.044 (p = 0.087),
+  cloud providers +0.020 (p = 0.42), chipmakers −0.006 (p = 0.85).
+  Chipmakers, the group one would expect to gain from higher GPU rents, show
+  no exposure at all.
+- **Timing matters for individual firms:** several betas move a lot between
+  next-day (S1) and same-day (S5) timing, e.g. NOW 0.076 vs −0.002 and META
+  0.017 vs −0.040 (`outputs/robustness_betas.csv`).
+- **Nasdaq control:** adding the QQQ excess return (S4) barely changes the
+  software betas (NOW 0.078, SNOW 0.074, ADBE 0.063), so the weak signal is
+  not just a tech-market beta.
+
+**Bottom line so far:** daily H100 rental-price changes explain very little of
+daily stock returns over 2024–26. The only hint of exposure is a weak positive
+one in AI-heavy software, and it does not survive a multiple-testing correction.
 
 ## 5. Dashboard
 
@@ -198,9 +226,16 @@ specs_tried.md          # log of every specification run
   1 of 8 firms came out "significant" at 5%. On real data, 2 of 28 do in S1
   (NOW, ADBE), about what chance alone would give (1.4 expected); no
   multiple-testing correction has been applied yet.
-- **Weak control group:** KO and PG had market betas near 0 in 2025–26
-  (confirmed from raw prices). Low-volatility controls have mechanically
-  smaller compute betas, so group comparisons need standardized betas.
+- **Weak control group:** in 2024–26 the defensive controls barely moved with
+  the market: KO, JNJ, PG, PEP and DUK have market betas between −0.10 and
+  0.07. We checked that this is real, not a data error: the raw yfinance
+  prices show no one-day shift (the correlation with SPY is near 0 at lags −1, 0
+  and +1), the controls still correlate 0.4–0.6 with each other, and on the
+  2025-04-03 tariff shock SPY fell 4.9% while KO, JNJ and DUK rose 2.6–3.0%.
+  Defensives traded as their own block in this period. Low-volatility controls
+  have mechanically smaller compute betas, so we also report a
+  volatility-scaled beta (`std_compute_beta`); the group conclusions are the
+  same either way.
 - **Stale prices:** missing GPU days would be forward-filled, which biases
   betas toward zero. The real H100 series has no missing days (880 of 880), so
   nothing is forward-filled in v1. Whether Ornn's index itself moves slowly

@@ -32,7 +32,7 @@ def main() -> None:
 
     # ---- table ---------------------------------------------------------------
     tbl = betas[["ticker", "group", "market_beta", "compute_beta", "se", "ci_lo", "ci_hi",
-                 "p", "bps_per_10pct_gpu_move", "nobs"]].copy()
+                 "p", "p_bh", "std_compute_beta", "bps_per_10pct_gpu_move", "nobs"]].copy()
     with open(C.OUTPUTS / "table_compute_betas.md", "w", encoding="utf-8") as f:
         f.write(f"Compute betas (S1, GPU timing: {C.GPU_TIMING_MAIN}), data source: {source}, "
                 f"{betas['sample_start'].iloc[0]} to {betas['sample_end'].iloc[0]}\n\n")
@@ -42,8 +42,14 @@ def main() -> None:
     # ---- group summary (equal-weight average of firm betas) ------------------
     grp = (betas.groupby("group")
            .agg(n_firms=("ticker", "count"), mean_compute_beta=("compute_beta", "mean"),
+                mean_std_compute_beta=("std_compute_beta", "mean"),
                 mean_market_beta=("market_beta", "mean"))
            .reindex(GROUP_ORDER).reset_index())
+    # Formal test vs the control group (S6, step 4b); the Control row has none.
+    tests = pd.read_csv(C.OUTPUTS / "group_tests.csv")[["group", "diff_compute_beta", "p"]]
+    grp = grp.merge(tests.rename(columns={"diff_compute_beta": "diff_vs_control",
+                                          "p": "p_diff_vs_control"}),
+                    on="group", how="left", validate="1:1")
     grp["data_source"] = source
     grp.to_csv(C.OUTPUTS / "group_summary.csv", index=False)
 
