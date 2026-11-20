@@ -66,3 +66,19 @@ In v1, `dgpu` = the main-timing change and `dgpu_alt` = the other one.
 
 **v1 running total:** 5 specifications x 28 firms = **140 regressions** on real
 data (plus the 40 on FAKE data above, 180 in all).
+
+### v1 additions: group tests and multiple testing (logged 2026-11-20, before running)
+
+Method step 5 of the proposal ("test whether the exposed groups differ from the
+control group"), plus the multiple-testing correction the proposal promised.
+
+| ID | Data | Units | Formula | Why |
+|----|------|-------|---------|-----|
+| S6_group_vs_control | ORNN | 3 portfolios | `ls_ret ~ mkt_rf + dgpu` | `ls_ret` = equal-weighted excess return of a group (Chipmaker, Cloud provider, AI-heavy software) minus that of the Control group, each day. The `dgpu` coefficient is the difference in the group's average compute beta vs the controls. One portfolio regression (HAC, 5 lags) handles the fact that every firm shares the same GPU series, which a t-test across firm betas would ignore. |
+
+Not new regressions: Benjamini-Hochberg (FDR) adjusted p-values across the 28
+firms for S1 (`p_bh`), and a volatility-scaled compute beta
+(`std_compute_beta` = compute beta × sd(dgpu) / sd(stock excess return)), so
+low-volatility controls are comparable to high-volatility chipmakers.
+
+**v1 running total:** 140 firm regressions + 3 group regressions = **143** on real data.
