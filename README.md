@@ -8,10 +8,11 @@ that builds markets and price benchmarks for GPU compute.
 - Presentation: *TBD (file in this repo)*
 
 > **Status: v1 (Checkpoint 4).** Full sample on **real Ornn data**: 28 firms in
-> four groups, 569 trading days (2024-06-25 to 2026-09-30), 5 specifications =
-> 140 regressions. GPU timing is now **next-day** (see §4 and §8). Auditors
-> without an Ornn key get the fake file automatically. v0 self-audit:
-> [`audits/01_self_audit.md`](audits/01_self_audit.md).
+> four groups, 569 trading days (2024-06-25 to 2026-09-30), 143 regressions
+> (5 specifications × 28 firms, plus 3 group-vs-control tests). GPU timing is now **next-day** (see §4 and §8). Auditors
+> without an Ornn key get the fake file automatically. Self-audits:
+> [`audits/01_self_audit.md`](audits/01_self_audit.md) (v0),
+> [`audits/02_self_audit.md`](audits/02_self_audit.md) (v1).
 
 ## How to run
 
@@ -218,9 +219,11 @@ specs_tried.md          # log of every specification run
   after-close hours. v1 counts it on the next trading day (S1–S4) to avoid
   look-ahead; the same-day version (S5) is reported only for comparison. This
   is inferred from timestamps and Ornn's public docs, not confirmed by Ornn
-  directly. If the
-  averaging window ended before 4 pm, next-day timing would be stale rather
-  than look-ahead, which biases betas toward zero. Weekend moves roll into Monday.
+  directly; on 2026-11-20 at 14:52 NY the API had no value stamped 11-20 yet,
+  which fits a value appearing only after its day ends. Because the value dated
+  *d* also includes hours 0:00–16:00 of *d*, next-day timing is partly stale,
+  which biases betas toward zero (it can hide exposure, not create it).
+  Weekend moves roll into Monday.
 - **Multiple testing:** the "most exposed" of 28 firms can look exposed by
   chance. All firms and specifications are logged. On fake data (true beta = 0),
   1 of 8 firms came out "significant" at 5%. On real data, 2 of 28 do in S1
