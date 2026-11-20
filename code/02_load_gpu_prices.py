@@ -1,11 +1,12 @@
 """Step 2: load the GPU price (real Ornn if present, else FAKE) and turn it
 into a daily CHANGE on the stock-trading calendar.
 
-Timing rules (the true one is UNCONFIRMED; see config.py and README "Threats"):
-  dgpu    ("same_day", main): the GPU price dated d is known by the 4:00 pm ET
+Timing rules (see config.py GPU_TIMING_*; v1 main = next_day):
+  dgpu    = the main rule's column, dgpu_alt = the other rule's column.
+  dgpu_sd ("same_day"): the GPU price dated d is known by the 4:00 pm ET
           stock close on d. The level on trading day t is the last price dated
           on or before t, and dgpu_t = ln level(t) - ln level(previous trading day).
-  dgpu_nd ("next_day", alternative, audit A3): the price dated d is set after
+  dgpu_nd ("next_day", audit A3; v1 main): the price dated d is set after
           the close, so it is first known at the close of d + 1 calendar day.
           The level on trading day t is the last price dated on or before t - 1
           calendar day. E.g. Monday's level is Sunday's price, Friday's is
@@ -67,8 +68,13 @@ def main() -> None:
 
     daily = daily.dropna(subset=["gpu_price"])
 
-    daily["dgpu"] = np.log(daily["gpu_price"]).diff()
+    daily["dgpu_sd"] = np.log(daily["gpu_price"]).diff()
     daily["dgpu_nd"] = np.log(daily["gpu_price_nd"]).diff()
+    rule_col = {"same_day": "dgpu_sd", "next_day": "dgpu_nd"}
+    daily["dgpu"] = daily[rule_col[C.GPU_TIMING_MAIN]]        # main timing (S1-S4, leads/lags)
+    daily["dgpu_alt"] = daily[rule_col[C.GPU_TIMING_ALT]]     # other timing (S5)
+    print(f"main GPU timing: {C.GPU_TIMING_MAIN} "
+          f"({'confirmed' if C.GPU_TIMING_CONFIRMED else 'inferred, not confirmed by Ornn'})")
     for k in range(1, C.LEADLAG_K + 1):
         daily[f"dgpu_lag{k}"] = daily["dgpu"].shift(k)     # GPU move k trading days BEFORE t
         daily[f"dgpu_lead{k}"] = daily["dgpu"].shift(-k)   # GPU move k trading days AFTER t

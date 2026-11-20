@@ -64,8 +64,8 @@ def main() -> None:
     mon = next(d for d in sorted(days)[10:]
                if d.dayofweek == 0 and d - pd.Timedelta(days=3) in days)
     fri = mon - pd.Timedelta(days=3)
-    check(f"GPU change on Monday {mon.date()} (includes the weekend)",
-          panel.loc[panel["date"] == mon, "dgpu"].iloc[0],
+    check(f"GPU change on Monday {mon.date()}, same-day timing (Mon vs Fri price)",
+          panel.loc[panel["date"] == mon, "dgpu_sd"].iloc[0],
           np.log(p[mon.strftime("%Y-%m-%d")]) - np.log(p[fri.strftime("%Y-%m-%d")]),
           private=True)
     # Same Monday, alternative timing (S5): the price is known one day after its date,
@@ -75,6 +75,13 @@ def main() -> None:
           panel.loc[panel["date"] == mon, "dgpu_nd"].iloc[0],
           np.log(p[sun.strftime("%Y-%m-%d")]) - np.log(p[thu.strftime("%Y-%m-%d")]),
           private=True)
+    # The regressions use dgpu (main rule) and dgpu_alt (other rule): check they point
+    # at the right columns, so a config switch can't silently flip the timing.
+    rule_col = {"same_day": "dgpu_sd", "next_day": "dgpu_nd"}
+    for col, rule in [("dgpu", C.GPU_TIMING_MAIN), ("dgpu_alt", C.GPU_TIMING_ALT)]:
+        same = panel[col].equals(panel[rule_col[rule]])
+        lines.append(f"{'PASS' if same else 'FAIL'}  {col} uses the {rule} rule ({rule_col[rule]})")
+        assert same, lines[-1]
 
     # Step 3: unit of observation.
     lines.append(f"PASS  panel key (ticker, date) unique: {not panel.duplicated(['ticker', 'date']).any()}")
@@ -89,10 +96,10 @@ def main() -> None:
     check("NVDA market beta (S1)", betas.query("ticker == 'NVDA'")["market_beta"].item(),
           coef[1], tol=1e-8)
 
-    # Step 4: NVDA compute beta in S4 (Nasdaq control) and S5 (next-day timing), by numpy.
+    # Step 4: NVDA compute beta in S4 (Nasdaq control) and S5 (other timing), by numpy.
     nv_long = long[long["ticker"] == "NVDA"].set_index(["spec", "term"])["coef"]
     for spec, xcols, gpu_col in [("S4_nasdaq", ["mkt_rf", "qqq_rf"], "dgpu"),
-                                 ("S5_next_day", ["mkt_rf"], "dgpu_nd")]:
+                                 ("S5_alt_timing", ["mkt_rf"], "dgpu_alt")]:
         df = panel[panel["ticker"] == "NVDA"].dropna(subset=["ret_rf", gpu_col] + xcols)
         X = np.column_stack([np.ones(len(df))] + [df[c] for c in xcols] + [df[gpu_col]])
         coef, *_ = np.linalg.lstsq(X, df["ret_rf"].to_numpy(), rcond=None)

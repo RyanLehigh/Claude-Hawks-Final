@@ -1,11 +1,13 @@
 """Step 4: estimate compute betas, firm by firm.
 
-Specifications (every one is also listed in specs_tried.md):
-  S1 same_day     ret_rf ~ mkt_rf + dgpu
-  S2 same_day_ff3 ret_rf ~ mkt_rf + smb + hml + dgpu
+Specifications (every one is also listed in specs_tried.md). dgpu uses the
+MAIN GPU timing rule and dgpu_alt the other one (config.GPU_TIMING_*; v1 main =
+next_day). v0 called these S1_same_day ... S5_next_day, when same-day was main.
+  S1 main         ret_rf ~ mkt_rf + dgpu
+  S2 ff3          ret_rf ~ mkt_rf + smb + hml + dgpu
   S3 lead_lag     ret_rf ~ mkt_rf + dgpu_lag2 + dgpu_lag1 + dgpu + dgpu_lead1 + dgpu_lead2
   S4 nasdaq       ret_rf ~ mkt_rf + qqq_rf + dgpu       (audit A2: Nasdaq/tech control)
-  S5 next_day     ret_rf ~ mkt_rf + dgpu_nd             (audit A3: alternative GPU timing)
+  S5 alt_timing   ret_rf ~ mkt_rf + dgpu_alt            (audit A3: the other GPU timing)
 
 OLS with Newey-West (HAC) standard errors. Every firm is reported, whatever
 its estimate.
@@ -25,17 +27,17 @@ import config as C
 lags = [f"dgpu_lag{k}" for k in range(C.LEADLAG_K, 0, -1)]
 leads = [f"dgpu_lead{k}" for k in range(1, C.LEADLAG_K + 1)]
 SPECS = {
-    "S1_same_day": "ret_rf ~ mkt_rf + dgpu",
-    "S2_same_day_ff3": "ret_rf ~ mkt_rf + smb + hml + dgpu",
+    "S1_main": "ret_rf ~ mkt_rf + dgpu",
+    "S2_ff3": "ret_rf ~ mkt_rf + smb + hml + dgpu",
     "S3_lead_lag": "ret_rf ~ mkt_rf + " + " + ".join(lags + ["dgpu"] + leads),
     "S4_nasdaq": "ret_rf ~ mkt_rf + qqq_rf + dgpu",
-    "S5_next_day": "ret_rf ~ mkt_rf + dgpu_nd",
+    "S5_alt_timing": "ret_rf ~ mkt_rf + dgpu_alt",
 }
 # The compute-beta term in each single-coefficient spec (S3 has a whole profile instead).
-COMPUTE_TERM = {"S1_same_day": "dgpu", "S2_same_day_ff3": "dgpu",
-                "S4_nasdaq": "dgpu", "S5_next_day": "dgpu_nd"}
+COMPUTE_TERM = {"S1_main": "dgpu", "S2_ff3": "dgpu",
+                "S4_nasdaq": "dgpu", "S5_alt_timing": "dgpu_alt"}
 # GPU timing rule behind each spec (see config.py)
-TIMING = {s: (C.GPU_TIMING_ALT if s == "S5_next_day" else C.GPU_TIMING_MAIN) for s in SPECS}
+TIMING = {s: (C.GPU_TIMING_ALT if s == "S5_alt_timing" else C.GPU_TIMING_MAIN) for s in SPECS}
 # k = days the GPU move is shifted relative to the stock return (negative = GPU moved first)
 K_OF_TERM = {"dgpu": 0,
              **{f"dgpu_lag{k}": -k for k in range(1, C.LEADLAG_K + 1)},
@@ -89,11 +91,12 @@ def main() -> None:
     long.to_csv(C.OUTPUTS / "betas_long.csv", index=False)
 
     # Main result: S1 compute beta, one row per firm.
-    main_tbl = (long.query("spec == 'S1_same_day' and term == 'dgpu'")
+    main_tbl = (long.query("spec == 'S1_main' and term == 'dgpu'")
                 [["ticker", "group", "coef", "se", "t", "p", "ci_lo", "ci_hi", "nobs", "r2",
                   "data_source", "sample_start", "sample_end"]]
                 .rename(columns={"coef": "compute_beta"}))
-    mkt = (long.query("spec == 'S1_same_day' and term == 'mkt_rf'")
+    main_tbl["gpu_timing"] = C.GPU_TIMING_MAIN
+    mkt = (long.query("spec == 'S1_main' and term == 'mkt_rf'")
            [["ticker", "coef"]].rename(columns={"coef": "market_beta"}))
     main_tbl = main_tbl.merge(mkt, on="ticker", how="left", validate="1:1")
     # Magnitude: stock return response to a 10% rise in the GPU price, in basis points.
