@@ -25,8 +25,8 @@ daily GPU price changes derived from the private Ornn data.
 (04:00 UTC in summer, 05:00 UTC in winter), i.e. the start of the New York day.
 Ornn's docs say the index is published hourly and averaged to a daily value, so
 the value dated *d* includes hours after the 4 pm stock close. v1 therefore
-counts it on the next trading day (`GPU_TIMING_MAIN = "next_day"`). Not yet
-confirmed in writing by Ornn.
+counts it on the next trading day (`GPU_TIMING_MAIN = "next_day"`). This is
+inferred from the timestamps and docs, not confirmed by Ornn directly.
 
 **Terms:** Ornn's data-use terms forbid redistributing the data or API
 responses, so only regression results are committed (`outputs/`).

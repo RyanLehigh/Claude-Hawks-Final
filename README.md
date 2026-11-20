@@ -75,7 +75,7 @@ dashboard, not anywhere else.
 - **Time of day:** every daily value is stamped at midnight New York time, and
   Ornn's docs say the index is an hourly series averaged to a daily value. So
   the value dated *d* includes hours after the 4 pm close, and v1 counts it on
-  the next trading day. *Still to confirm with Ornn in writing.*
+  the next trading day. This is our inference from the data and docs.
 - **Still open:** which regions and rental terms feed the H100 index (the API
   only reports a "global" region).
 
@@ -189,7 +189,8 @@ specs_tried.md          # log of every specification run
   describes it as an average of hourly prints, so the value dated *d* includes
   after-close hours. v1 counts it on the next trading day (S1–S4) to avoid
   look-ahead; the same-day version (S5) is reported only for comparison. This
-  is inferred from timestamps and docs, not yet confirmed by Ornn. If the
+  is inferred from timestamps and Ornn's public docs, not confirmed by Ornn
+  directly. If the
   averaging window ended before 4 pm, next-day timing would be stale rather
   than look-ahead, which biases betas toward zero. Weekend moves roll into Monday.
 - **Multiple testing:** the "most exposed" of 28 firms can look exposed by

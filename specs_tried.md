@@ -28,9 +28,9 @@ is set after the close, so it is first known at the close of *d* + 1 day
 change *k* trading days before the stock return; `dgpu_leadk` = *k* days after.
 `qqq_rf` = QQQ daily return minus the risk-free rate.
 
-**Which timing is the main spec:** S1 (same day) for now, but this is *not*
-confirmed. Once Ornn tells us when each daily price is set, the matching
-mapping becomes the main specification and the other stays logged here.
+**Which timing is the main spec (v0):** S1 (same day). *Superseded in v1:* the
+real data's timestamps show the daily value covers the whole New York day, so v1
+makes next-day timing the main spec (see the v1 section below).
 
 ## Placebo note
 

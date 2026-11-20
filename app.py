@@ -73,7 +73,7 @@ with method:
         "1. **Changes, not levels.** Daily log change in the GPU price.\n"
         "2. **Timing.** Ornn's daily value is an average of hourly prints over a New York "
         "calendar day, so the value dated *d* includes hours after the 4 pm close. We count it "
-        "on the **next** trading day (inferred from Ornn's timestamps; confirmation pending). "
+        "on the **next** trading day (inferred from Ornn's timestamps and documentation). "
         "Weekend and holiday moves roll into the next trading day.\n"
         "3. **Compute beta (S1):**")
     st.latex(r"r_{it}-r_{f,t} = \alpha_i + \beta_i^{MKT}(MKT_t - r_{f,t}) "

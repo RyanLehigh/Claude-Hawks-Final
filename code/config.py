@@ -48,7 +48,7 @@ END = "2026-11-20"     # last stock date requested (exclusive in yfinance)
 
 # ---- Ornn file layout ------------------------------------------------------
 # Column names we expect from Ornn. The fake file uses exactly these.
-# TODO(v1): confirm against the real file from the professor.
+# code/00b_get_ornn.py writes the API data in exactly these columns.
 ORNN_DATE_COL = "date"
 ORNN_SERIES_COL = "gpu_model"
 ORNN_PRICE_COL = "price_usd_per_gpu_hour"
@@ -66,8 +66,8 @@ ORNN_SERIES = "H100"   # the one GPU price series (Ornn API name "H100 SXM")
 # the NY day, and Ornn's docs say the index is published hourly and "aggregated
 # to a daily average". So the value dated d averages hours after the 4 pm close
 # on d, and using it on d would be look-ahead. Same-day stays as the
-# alternative (S5). TODO: ask Ornn (data@ornn.com) to confirm the averaging
-# window; until they do, GPU_TIMING_CONFIRMED stays False ("inferred from timestamps").
+# alternative (S5). This is inferred from the timestamps and Ornn's public docs,
+# not confirmed by Ornn directly (disclosed in README, Threats to validity).
 #
 # Columns built in step 2: dgpu_sd (same-day rule), dgpu_nd (next-day rule),
 # dgpu = the MAIN rule (used by S1-S4 and the leads/lags), dgpu_alt = the other.

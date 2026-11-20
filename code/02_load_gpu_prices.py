@@ -74,7 +74,7 @@ def main() -> None:
     daily["dgpu"] = daily[rule_col[C.GPU_TIMING_MAIN]]        # main timing (S1-S4, leads/lags)
     daily["dgpu_alt"] = daily[rule_col[C.GPU_TIMING_ALT]]     # other timing (S5)
     print(f"main GPU timing: {C.GPU_TIMING_MAIN} "
-          f"({'confirmed' if C.GPU_TIMING_CONFIRMED else 'inferred, not confirmed by Ornn'})")
+          f"({'confirmed' if C.GPU_TIMING_CONFIRMED else 'inferred from Ornn timestamps and docs'})")
     for k in range(1, C.LEADLAG_K + 1):
         daily[f"dgpu_lag{k}"] = daily["dgpu"].shift(k)     # GPU move k trading days BEFORE t
         daily[f"dgpu_lead{k}"] = daily["dgpu"].shift(-k)   # GPU move k trading days AFTER t
