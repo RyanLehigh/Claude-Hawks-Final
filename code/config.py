@@ -17,34 +17,42 @@ PULL_LOG = RAW / "pull_log.csv"            # provenance: what was downloaded, wh
 PROCESSED = ROOT / "data" / "processed"    # git-ignored: rebuilt by run_all.py
 OUTPUTS = ROOT / "outputs"
 
-# ---- sample (v0) -----------------------------------------------------------
-# Groups are fixed here, before any results are looked at.
-# v0 uses 2 firms per group; v1 expands to the ~30 firms in the README.
+# ---- sample (v1) -----------------------------------------------------------
+# Groups are fixed here, before any real-data results were looked at
+# (committed on branch v1-results before the first real run).
+# v1 = the 28-firm draft list from the README / proposal, unchanged.
 FIRMS = {
-    "NVDA": "Chipmaker",
-    "AMD": "Chipmaker",
-    "MSFT": "Cloud provider",
-    "AMZN": "Cloud provider",
-    "META": "AI-heavy software",
-    "PLTR": "AI-heavy software",
-    "KO": "Control",
-    "PG": "Control",
+    # Chipmakers
+    "NVDA": "Chipmaker", "AMD": "Chipmaker", "AVGO": "Chipmaker", "TSM": "Chipmaker",
+    "INTC": "Chipmaker", "MU": "Chipmaker", "MRVL": "Chipmaker", "ARM": "Chipmaker",
+    # Cloud providers (CRWV listed 2025-03-28, so it has a shorter history)
+    "AMZN": "Cloud provider", "MSFT": "Cloud provider", "GOOGL": "Cloud provider",
+    "ORCL": "Cloud provider", "CRWV": "Cloud provider",
+    # AI-heavy software
+    "META": "AI-heavy software", "PLTR": "AI-heavy software", "CRM": "AI-heavy software",
+    "NOW": "AI-heavy software", "SNOW": "AI-heavy software", "ADBE": "AI-heavy software",
+    "AI": "AI-heavy software",
+    # Control (no compute exposure)
+    "KO": "Control", "PG": "Control", "JNJ": "Control", "WMT": "Control",
+    "PEP": "Control", "MCD": "Control", "XOM": "Control", "DUK": "Control",
 }
 MARKET_PROXY = "SPY"   # downloaded for a hand check; the regressions use Ken French Mkt-RF
 # Extra control factor (audit A2): is a compute beta just a Nasdaq/tech beta?
 # Kept in its own raw file so adding it does not re-download (and move) prices.csv.
 NASDAQ_PROXY = "QQQ"
 
-START = "2024-11-01"   # first stock date requested
-END = "2026-10-31"     # last stock date requested (exclusive in yfinance)
+# The real Ornn H100 series starts 2024-06-23. The sample ends where the Ken
+# French daily factors end (2026-09-30 as of the v1 pull).
+START = "2024-06-01"   # first stock date requested
+END = "2026-11-20"     # last stock date requested (exclusive in yfinance)
 
 # ---- Ornn file layout ------------------------------------------------------
 # Column names we expect from Ornn. The fake file uses exactly these.
-# TODO(v1): confirm against the real file from the professor.
+# code/00b_get_ornn.py writes the API data in exactly these columns.
 ORNN_DATE_COL = "date"
 ORNN_SERIES_COL = "gpu_model"
 ORNN_PRICE_COL = "price_usd_per_gpu_hour"
-ORNN_SERIES = "H100"   # the one GPU price series used in v0
+ORNN_SERIES = "H100"   # the one GPU price series (Ornn API name "H100 SXM")
 
 # ---- GPU price timing (audit A3) -------------------------------------------
 # When is the price dated d set, relative to the 4:00 pm ET stock close?
@@ -52,12 +60,19 @@ ORNN_SERIES = "H100"   # the one GPU price series used in v0
 #               Main specification (S1-S4), column dgpu.
 #   "next_day": set after the close on d -> first known at the close of d + 1
 #               calendar day, so it belongs to the next trading day on or after d + 1.
-#               Alternative specification (S5), column dgpu_nd.
-# UNCONFIRMED: we are asking Ornn for the exact time and time zone of each daily
-# print. Until then both mappings are estimated and reported, labeled.
-# Once confirmed, set GPU_TIMING_CONFIRMED and make that mapping the main spec.
-GPU_TIMING_MAIN = "same_day"
-GPU_TIMING_ALT = "next_day"
+#
+# v1 decision: NEXT_DAY is the main timing. Evidence: every daily value from the
+# Ornn API is stamped at midnight New York time (04:00/05:00 UTC) = the START of
+# the NY day, and Ornn's docs say the index is published hourly and "aggregated
+# to a daily average". So the value dated d averages hours after the 4 pm close
+# on d, and using it on d would be look-ahead. Same-day stays as the
+# alternative (S5). This is inferred from the timestamps and Ornn's public docs,
+# not confirmed by Ornn directly (disclosed in README, Threats to validity).
+#
+# Columns built in step 2: dgpu_sd (same-day rule), dgpu_nd (next-day rule),
+# dgpu = the MAIN rule (used by S1-S4 and the leads/lags), dgpu_alt = the other.
+GPU_TIMING_MAIN = "next_day"
+GPU_TIMING_ALT = "same_day"
 GPU_TIMING_CONFIRMED = False
 
 # ---- regressions -----------------------------------------------------------

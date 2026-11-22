@@ -29,14 +29,14 @@ def load():
 
 betas, long, groups, sample, robust = load()
 SPEC_LABEL = {
-    "S1_same_day": "S1: market (main)",
-    "S2_same_day_ff3": "S2: + size & value",
+    "S1_main": "S1: market (main)",
+    "S2_ff3": "S2: + size & value",
     "S4_nasdaq": "S4: + Nasdaq (QQQ)",
-    "S5_next_day": "S5: next-day GPU timing",
+    "S5_alt_timing": "S5: same-day GPU timing (look-ahead check)",
 }
 
 st.title("Which stocks are exposed to GPU prices?")
-st.caption("FIN 331 final project · Claude-Hawks · data partner: Ornn · v0 skeleton")
+st.caption("FIN 331 final project · Claude-Hawks · GPU price data: Ornn (H100 index; private, not shown) · v1")
 if sample["data_source"] == "FAKE":
     st.warning("**These results use FAKE GPU prices** (a random walk unrelated to any stock), "
                "so every true compute beta is zero. Any estimate that looks significant here is "
@@ -71,9 +71,11 @@ with method:
     st.header("Recipe")
     st.markdown(
         "1. **Changes, not levels.** Daily log change in the GPU price.\n"
-        "2. **Timing.** A GPU price dated *d* counts as known by the 4 pm close on *d*. "
+        "2. **Timing.** Ornn's daily value is an average of hourly prints over a New York "
+        "calendar day, so the value dated *d* includes hours after the 4 pm close. We count it "
+        "on the **next** trading day (inferred from Ornn's timestamps and documentation). "
         "Weekend and holiday moves roll into the next trading day.\n"
-        "3. **Same-day compute beta (S1):**")
+        "3. **Compute beta (S1):**")
     st.latex(r"r_{it}-r_{f,t} = \alpha_i + \beta_i^{MKT}(MKT_t - r_{f,t}) "
              r"+ \beta_i^{GPU}\,\Delta \ln P^{GPU}_t + \varepsilon_{it}")
     st.markdown(
@@ -81,15 +83,18 @@ with method:
         "5. **Leads and lags (S3):** GPU changes from *t−2* to *t+2*.\n"
         "6. **Nasdaq control (S4):** add the QQQ excess return, so a compute beta can't just "
         "be a tech or AI-sentiment beta in disguise.\n"
-        "7. **Timing check (S5):** we don't yet know what time Ornn sets each day's price. S5 "
-        "assumes it is set *after* the close, so a price dated *d* counts on the next "
-        "trading day. Until Ornn confirms, we report both S1 and S5.\n"
-        "8. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
+        "7. **Timing check (S5):** the same regression, but counting the price dated *d* on "
+        "day *d* itself. That uses hours after the close (look-ahead), so it is reported only "
+        "to show how much the timing choice matters.\n"
+        "8. **Groups vs control (S6):** regress the group-minus-control portfolio return on "
+        "the market and the GPU change. Firm p-values are also adjusted for multiple testing "
+        "(Benjamini-Hochberg).\n"
+        "9. Newey-West (HAC) standard errors, 5 lags. Every firm and every specification is "
         "reported (see `specs_tried.md`).")
 
 # ---------------------------------------------------------------- Results
 with results:
-    st.header("Same-day compute betas")
+    st.header("Compute betas (S1)")
     b = betas.copy()
     base = alt.Chart(b).encode(y=alt.Y("ticker:N", sort="-x", title=None))
     bars = base.mark_rule(strokeWidth=3, color="#bbbbbb").encode(
@@ -99,23 +104,29 @@ with results:
         tooltip=["ticker", "group", alt.Tooltip("compute_beta:Q", format=".3f"),
                  alt.Tooltip("se:Q", format=".3f"), alt.Tooltip("p:Q", format=".3f")])
     zero = alt.Chart(pd.DataFrame({"x": [0]})).mark_rule(color="black").encode(x="x:Q")
-    st.altair_chart((bars + dots + zero).properties(height=320), width="stretch")
+    st.altair_chart((bars + dots + zero).properties(height=22 * len(b)), width="stretch")
 
     st.subheader("Table")
     st.dataframe(
-        b[["ticker", "group", "market_beta", "compute_beta", "se", "p",
-           "bps_per_10pct_gpu_move", "nobs"]].round(3),
+        b[["ticker", "group", "market_beta", "compute_beta", "se", "p", "p_bh",
+           "std_compute_beta", "bps_per_10pct_gpu_move", "nobs"]].round(3),
         hide_index=True, width="stretch")
-    st.caption("`bps_per_10pct_gpu_move`: the stock's same-day return, in basis points, "
-               "associated with a 10% rise in the GPU price.")
+    st.caption("`bps_per_10pct_gpu_move`: the stock's return, in basis points, on the trading "
+               "day a 10% rise in the GPU price becomes known. `p_bh`: p-value adjusted for "
+               f"testing {len(b)} firms at once (Benjamini-Hochberg). `std_compute_beta`: a "
+               "1-standard-deviation GPU move, in standard deviations of the stock's return.")
 
-    st.subheader("By group (equal-weighted average of firm betas)")
-    st.dataframe(groups.round(3), hide_index=True, width="stretch")
+    st.subheader("By group, and tested against the control group")
+    st.dataframe(groups.drop(columns="data_source").round(3), hide_index=True, width="stretch")
+    st.caption("`diff_vs_control` and its p-value come from one regression per group: the daily "
+               "return of an equal-weighted group portfolio minus the control portfolio, on the "
+               "market and the GPU change (HAC SEs). This accounts for every firm sharing the "
+               "same GPU series.")
 
     st.subheader("Robustness: compute beta in every specification")
     st.markdown("If a firm's compute beta is real, it should survive the Nasdaq control (S4). "
-                "If it flips sign under the other timing rule (S5), the result depends on "
-                "when Ornn sets its price, which we haven't confirmed yet.")
+                "S5 shows the same-day timing, which uses after-close information; a big "
+                "gap between S1 and S5 means the timing choice drives the result.")
     wide = (robust.assign(spec=robust["spec"].map(SPEC_LABEL))
             .pivot(index=["ticker", "group"], columns="spec", values="compute_beta")
             [list(SPEC_LABEL.values())].reset_index().round(3))
@@ -154,4 +165,4 @@ with explore:
             x=alt.X("compute_beta:Q", title="Compute beta (S1)"),
             y=alt.Y("ticker:N", sort="-x", title=None), color=color,
             tooltip=["ticker", "group", alt.Tooltip("compute_beta:Q", format=".3f")])
-        .properties(height=280), width="stretch")
+        .properties(height=22 * len(rank)), width="stretch")

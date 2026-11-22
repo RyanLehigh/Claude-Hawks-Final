@@ -32,9 +32,9 @@ def main() -> None:
 
     # ---- table ---------------------------------------------------------------
     tbl = betas[["ticker", "group", "market_beta", "compute_beta", "se", "ci_lo", "ci_hi",
-                 "p", "bps_per_10pct_gpu_move", "nobs"]].copy()
+                 "p", "p_bh", "std_compute_beta", "bps_per_10pct_gpu_move", "nobs"]].copy()
     with open(C.OUTPUTS / "table_compute_betas.md", "w", encoding="utf-8") as f:
-        f.write(f"Same-day compute betas (S1), data source: {source}, "
+        f.write(f"Compute betas (S1, GPU timing: {C.GPU_TIMING_MAIN}), data source: {source}, "
                 f"{betas['sample_start'].iloc[0]} to {betas['sample_end'].iloc[0]}\n\n")
         f.write(tbl.round(3).to_markdown(index=False))
         f.write("\n")
@@ -42,8 +42,14 @@ def main() -> None:
     # ---- group summary (equal-weight average of firm betas) ------------------
     grp = (betas.groupby("group")
            .agg(n_firms=("ticker", "count"), mean_compute_beta=("compute_beta", "mean"),
+                mean_std_compute_beta=("std_compute_beta", "mean"),
                 mean_market_beta=("market_beta", "mean"))
            .reindex(GROUP_ORDER).reset_index())
+    # Formal test vs the control group (S6, step 4b); the Control row has none.
+    tests = pd.read_csv(C.OUTPUTS / "group_tests.csv")[["group", "diff_compute_beta", "p"]]
+    grp = grp.merge(tests.rename(columns={"diff_compute_beta": "diff_vs_control",
+                                          "p": "p_diff_vs_control"}),
+                    on="group", how="left", validate="1:1")
     grp["data_source"] = source
     grp.to_csv(C.OUTPUTS / "group_summary.csv", index=False)
 
@@ -61,7 +67,7 @@ def main() -> None:
 
     # ---- figure 1: compute betas with CI ---------------------------------------
     b = betas.sort_values("compute_beta")
-    fig, ax = plt.subplots(figsize=(7, 4.5))
+    fig, ax = plt.subplots(figsize=(7, 1.5 + 0.25 * len(b)))
     colors = b["group"].map(GROUP_COLOR)
     ax.errorbar(b["compute_beta"], b["ticker"],
                 xerr=[b["compute_beta"] - b["ci_lo"], b["ci_hi"] - b["compute_beta"]],
@@ -72,7 +78,8 @@ def main() -> None:
         ax.scatter([], [], c=GROUP_COLOR[g], label=g)
     ax.legend(frameon=False, fontsize=8, loc="lower right")
     ax.set_xlabel("Compute beta (stock excess return on daily log change in GPU price)")
-    ax.set_title(f"Same-day compute beta, 95% CI (HAC){tag}", fontsize=10)
+    ax.set_title(f"Compute beta (S1, {C.GPU_TIMING_MAIN} GPU timing), 95% CI (HAC){tag}",
+                 fontsize=10)
     fig.tight_layout()
     fig.savefig(C.OUTPUTS / "fig_compute_betas.png", dpi=150)
     plt.close(fig)
@@ -80,14 +87,19 @@ def main() -> None:
     # ---- figure 2: lead-lag profiles ---------------------------------------------
     ll = long.query("spec == 'S3_lead_lag' and k == k").copy()
     tickers = betas.sort_values(["group", "ticker"])["ticker"].tolist()
-    fig, axes = plt.subplots(2, 4, figsize=(11, 5), sharex=True, sharey=True)
+    ncols = 7
+    nrows = -(-len(tickers) // ncols)
+    fig, axes = plt.subplots(nrows, ncols, figsize=(2.2 * ncols, 2.1 * nrows),
+                             sharex=True, sharey=True, squeeze=False)
+    for ax in axes.flat[len(tickers):]:
+        ax.set_visible(False)
     for ax, t in zip(axes.flat, tickers):
         d = ll[ll["ticker"] == t].sort_values("k")
         g = d["group"].iloc[0]
         ax.fill_between(d["k"], d["ci_lo"], d["ci_hi"], color=GROUP_COLOR[g], alpha=0.2)
         ax.plot(d["k"], d["coef"], marker="o", color=GROUP_COLOR[g])
         ax.axhline(0, color="black", lw=0.6)
-        ax.set_title(f"{t} ({g})", fontsize=9)
+        ax.set_title(f"{t} ({g})", fontsize=7)
     for ax in axes[-1]:
         ax.set_xlabel("k (negative = GPU moved first)")
     fig.suptitle(f"Lead-lag profile: coefficient on GPU change at t+k{tag}", fontsize=10)

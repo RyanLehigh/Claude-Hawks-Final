@@ -4,7 +4,8 @@ One row = firm x trading day.
 Key: (ticker, date), asserted unique.
 
 Columns: ticker, group, date, ret, rf, ret_rf (excess return), mkt_rf, smb,
-hml, qqq_rf (QQQ excess return), dgpu, dgpu_nd (alternative timing),
+hml, qqq_rf (QQQ excess return), dgpu (main GPU timing), dgpu_alt (other
+timing), dgpu_sd / dgpu_nd (same-day / next-day rule, for the hand checks),
 dgpu_lag1.., dgpu_lead1..
 
 Every merge uses validate= and reports how many rows it drops.
@@ -67,7 +68,7 @@ def main() -> None:
     assert panel["ret"].abs().max() < 1, "a daily return above 100%: check the price data"
 
     cols = (["ticker", "group", "date", "ret", "rf", "ret_rf", "mkt_rf", "smb", "hml", "qqq_rf",
-             "dgpu", "dgpu_nd"]
+             "dgpu", "dgpu_alt", "dgpu_sd", "dgpu_nd"]
             + [c for c in panel.columns if c.startswith(("dgpu_lag", "dgpu_lead"))])
     panel = panel[cols]
     panel.to_csv(C.PROCESSED / "panel.csv", index=False)

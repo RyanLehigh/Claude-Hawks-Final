@@ -28,9 +28,9 @@ is set after the close, so it is first known at the close of *d* + 1 day
 change *k* trading days before the stock return; `dgpu_leadk` = *k* days after.
 `qqq_rf` = QQQ daily return minus the risk-free rate.
 
-**Which timing is the main spec:** S1 (same day) for now, but this is *not*
-confirmed. Once Ornn tells us when each daily price is set, the matching
-mapping becomes the main specification and the other stays logged here.
+**Which timing is the main spec (v0):** S1 (same day). *Superseded in v1:* the
+real data's timestamps show the daily value covers the whole New York day, so v1
+makes next-day timing the main spec (see the v1 section below).
 
 ## Placebo note
 
@@ -42,3 +42,43 @@ Under S5 (other timing), 3 of 8 FAKE compute betas change sign relative to S1
 (MSFT, AMZN, PG), and META goes from −0.134 to −0.012. These match the
 instructor audit's independent re-estimate. So on this data, the same-day
 result depends on the timing assumption.
+
+## v1 (real Ornn data, 28 firms): pre-registered before the first real run
+
+Logged on 2026-11-20, on branch `v1-results`, **before** any regression was run
+on the real Ornn data. The firm list and groups are the README draft list,
+unchanged (28 firms; `code/config.py`).
+
+**Timing switch.** The Ornn API stamps every daily H100 value at midnight New
+York time (the start of the NY day it averages over), so the value dated *d*
+includes hours after the 4 pm close. v1 therefore makes **next-day** timing the
+main rule. The specs were renamed so their names don't claim a timing:
+
+| v1 ID | v0 ID | GPU timing | Formula |
+|-------|-------|-----------|---------|
+| S1_main | S1_same_day | next-day (main) | `ret_rf ~ mkt_rf + dgpu` |
+| S2_ff3 | S2_same_day_ff3 | next-day | `ret_rf ~ mkt_rf + smb + hml + dgpu` |
+| S3_lead_lag | S3_lead_lag | next-day | `ret_rf ~ mkt_rf + dgpu_lag2 + dgpu_lag1 + dgpu + dgpu_lead1 + dgpu_lead2` |
+| S4_nasdaq | S4_nasdaq | next-day | `ret_rf ~ mkt_rf + qqq_rf + dgpu` |
+| S5_alt_timing | (S1_same_day) | same-day (look-ahead check) | `ret_rf ~ mkt_rf + dgpu_alt` |
+
+In v1, `dgpu` = the main-timing change and `dgpu_alt` = the other one.
+
+**v1 running total:** 5 specifications x 28 firms = **140 regressions** on real
+data (plus the 40 on FAKE data above, 180 in all).
+
+### v1 additions: group tests and multiple testing (logged 2026-11-20, before running)
+
+Method step 5 of the proposal ("test whether the exposed groups differ from the
+control group"), plus the multiple-testing correction the proposal promised.
+
+| ID | Data | Units | Formula | Why |
+|----|------|-------|---------|-----|
+| S6_group_vs_control | ORNN | 3 portfolios | `ls_ret ~ mkt_rf + dgpu` | `ls_ret` = equal-weighted excess return of a group (Chipmaker, Cloud provider, AI-heavy software) minus that of the Control group, each day. The `dgpu` coefficient is the difference in the group's average compute beta vs the controls. One portfolio regression (HAC, 5 lags) handles the fact that every firm shares the same GPU series, which a t-test across firm betas would ignore. |
+
+Not new regressions: Benjamini-Hochberg (FDR) adjusted p-values across the 28
+firms for S1 (`p_bh`), and a volatility-scaled compute beta
+(`std_compute_beta` = compute beta × sd(dgpu) / sd(stock excess return)), so
+low-volatility controls are comparable to high-volatility chipmakers.
+
+**v1 running total:** 140 firm regressions + 3 group regressions = **143** on real data.

@@ -1,13 +1,18 @@
-PASS  NVDA return on 2025-04-01: pipeline=0.01633151014  by_hand=0.01633151014
-PASS  corr(SPY excess ret, Ken French Mkt-RF) = 0.9944 (want > 0.95: same units, same dates)
-PASS  QQQ excess return on 2025-04-01: pipeline=0.007861083434  by_hand=0.007861083434
-PASS  GPU change on Monday 2024-11-18 (includes the weekend): pipeline=-0.009821583777  by_hand=-0.009821583777
-PASS  GPU change on Monday 2024-11-18, next-day timing (Sun vs Thu price): pipeline=-0.01553917046  by_hand=-0.01553917046
+PASS  NVDA return on 2024-11-14: pipeline=0.003350000528  by_hand=0.003350000528
+PASS  corr(SPY excess ret, Ken French Mkt-RF) = 0.9943 (want > 0.95: same units, same dates)
+PASS  QQQ excess return on 2024-11-14: pipeline=-0.007149774839  by_hand=-0.007149774839
+PASS  GPU change on Monday 2024-07-15, same-day timing (Mon vs Fri price): values hidden (private Ornn data)
+PASS  GPU change on Monday 2024-07-15, next-day timing (Sun vs Thu price): values hidden (private Ornn data)
+PASS  dgpu uses the next_day rule (dgpu_nd)
+PASS  dgpu_alt uses the same_day rule (dgpu_sd)
 PASS  panel key (ticker, date) unique: True
-PASS  NVDA compute beta (S1): pipeline=-0.03966006299  by_hand=-0.03966006299
-PASS  NVDA market beta (S1): pipeline=1.820128618  by_hand=1.820128618
-PASS  NVDA compute beta (S4_nasdaq): pipeline=-0.04775314504  by_hand=-0.04775314504
-PASS  NVDA compute beta (S5_next_day): pipeline=-0.0006889740025  by_hand=-0.0006889740025
-PASS  Chipmaker mean compute beta: pipeline=-0.01259079755  by_hand=-0.01259079755
-PASS  tech/AI market betas all > 0.5: PLTR 2.07, AMD 2.28, NVDA 1.82, MSFT 0.91, AMZN 1.34, META 1.35
-INFO  control market betas (low in 2025-26, confirmed from raw prices): KO -0.04, PG 0.10
+PASS  NVDA compute beta (S1): pipeline=0.003756826526  by_hand=0.003756826526
+PASS  NVDA market beta (S1): pipeline=1.965347619  by_hand=1.965347619
+PASS  NVDA compute beta (S4_nasdaq): pipeline=-0.002514914921  by_hand=-0.002514914921
+PASS  NVDA compute beta (S5_alt_timing): pipeline=0.02074588365  by_hand=0.02074588365
+PASS  Chipmaker mean compute beta: pipeline=-0.004805882064  by_hand=-0.004805882064
+PASS  BH-adjusted p of the most significant firm: pipeline=0.5290378831  by_hand=0.5290378831
+PASS  NVDA volatility-scaled compute beta: pipeline=0.004197450945  by_hand=0.004197450945
+PASS  AI-heavy software minus Control compute beta (S6): pipeline=0.04432896011  by_hand=0.04432896011
+PASS  tech/AI market betas all > 0.5: NOW 1.16, SNOW 1.50, ADBE 0.80, ORCL 1.61, AMD 2.26, AI 1.99, CRM 0.93, PLTR 2.06, MSFT 0.94, AMZN 1.38, META 1.36, INTC 2.05, NVDA 1.97, AVGO 1.97, CRWV 2.65, GOOGL 1.11, TSM 1.67, MRVL 2.59, MU 2.40, ARM 2.68
+INFO  control market betas (near 0 in 2024-26: real, see README Threats): KO -0.04, WMT 0.41, MCD 0.16, JNJ -0.04, PEP 0.04, DUK -0.10, XOM 0.17, PG 0.07
