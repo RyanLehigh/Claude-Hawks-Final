@@ -1,6 +1,6 @@
 # Claude-Hawks-Final: Which Stocks Are Exposed to GPU Prices?
 
-FIN 377 final project (Seed 15), built with industry partner **Ornn**, a company
+FIN 331 final project (Seed 15), built with industry partner **Ornn**, a company
 that builds markets and price benchmarks for GPU compute.
 
 - **Dashboard:** https://claude-hawks-final-bcfmmhexdwvlz3ekklhhk9.streamlit.app/ (app: [`app.py`](app.py); if it's asleep, click "wake up")
