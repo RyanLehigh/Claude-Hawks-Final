@@ -3,7 +3,7 @@
 FIN 331 final project (Seed 15), built with industry partner **Ornn**, a company
 that builds markets and price benchmarks for GPU compute.
 
-- **Dashboard:** https://claude-hawks-final-bcfmmhexdwvlz3ekklhhk9.streamlit.app/ (app: [`app.py`](app.py); if it's asleep, click "wake up")
+- **Dashboard:** https://claude-hawks-final-zbnwjzxknxjikumfjlz4az.streamlit.app/ (app: [`app.py`](app.py); if it's asleep, click "wake up")
 - Dashboard repo: this repo (`app.py` reads only `outputs/`)
 - **Presentation:** we present directly from the dashboard above. Its six tabs
   are the talk, in order (question → method → findings → robustness → explore
