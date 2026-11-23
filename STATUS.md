@@ -1,5 +1,9 @@
 # Project Status — Which Stocks Are Exposed to GPU Prices?
 
+> **Note (Nov 23):** this memo was written for Checkpoints 1–2 (8 firms, fake
+> GPU data). The v1 results on real Ornn data (28 firms) are in the
+> [README](README.md) (§4b) and [`audits/02_self_audit.md`](audits/02_self_audit.md).
+
 ## 1. Checkpoint 1 — Initial Progress
 
 For our FIN 331 final project, we wanted to examine whether changes in GPU rental prices are related to stock returns, especially for companies involved in AI computing. Our main research question is which companies' share prices are most exposed to the cost of compute. We also wanted to see whether GPU prices and stock returns move together on the same day, whether one moves before the other, and whether the relationship differs across industries.

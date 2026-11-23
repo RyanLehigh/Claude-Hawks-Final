@@ -5,7 +5,9 @@ that builds markets and price benchmarks for GPU compute.
 
 - **Dashboard:** https://claude-hawks-final-bcfmmhexdwvlz3ekklhhk9.streamlit.app/ (app: [`app.py`](app.py); if it's asleep, click "wake up")
 - Dashboard repo: this repo (`app.py` reads only `outputs/`)
-- Presentation: *TBD (file in this repo)*
+- **Presentation:** we present directly from the dashboard above. Its six tabs
+  are the talk, in order (question → method → findings → robustness → explore
+  a firm → takeaways and limits), written for an audience new to the project.
 
 > **Status: v1 (Checkpoint 4).** Full sample on **real Ornn data**: 28 firms in
 > four groups, 569 trading days (2024-06-25 to 2026-09-30), 143 regressions
@@ -167,13 +169,25 @@ one in AI-heavy software, and it does not survive a multiple-testing correction.
 
 ## 5. Dashboard
 
-- Pick a firm → its compute beta with a confidence interval, and its lead-lag
-  profile.
-- Ranking of the most exposed firms, colored by group.
-- Pages: project intro, methodology, results, interactive exploration.
-- Built with Streamlit ([`app.py`](app.py)), with tabs for Intro, Methodology,
-  Results, and Explore. Uses only derived results from `outputs/`, never raw
-  Ornn prices. Shows a warning banner whenever the results come from fake data.
+Built with Streamlit ([`app.py`](app.py)) and doubles as the final
+presentation. Six tabs, in talk order:
+
+1. **The question:** what a GPU rental price is, who would care, and the
+   one-line answer with headline numbers.
+2. **How we measured it:** the compute beta in plain English with a worked
+   example, the four steps, and the 28 firms by group (formula and technical
+   details in an expander).
+3. **What we found:** every firm's compute beta with a 95% range, the
+   multiple-testing explanation, and the group-vs-control test (S6).
+4. **Does it hold up?** Nasdaq control (S1 vs S4), timing (S1 vs S5), and the
+   lead-lag profile averaged by group (S3).
+5. **Explore a firm:** pick a firm and specification to see its compute beta,
+   range, lead-lag profile, and a ranking filtered by group.
+6. **Takeaways and limits:** conclusions, threats to validity, and data notes.
+
+Every number on the page is read or computed from `outputs/` at load time; none
+is typed in by hand. The app never reads raw Ornn prices, and shows a warning
+banner whenever the results come from fake data.
 
 ## 6. Repo structure
 
@@ -227,8 +241,9 @@ specs_tried.md          # log of every specification run
 - **Multiple testing:** the "most exposed" of 28 firms can look exposed by
   chance. All firms and specifications are logged. On fake data (true beta = 0),
   1 of 8 firms came out "significant" at 5%. On real data, 2 of 28 do in S1
-  (NOW, ADBE), about what chance alone would give (1.4 expected); no
-  multiple-testing correction has been applied yet.
+  (NOW, ADBE), about what chance alone would give (1.4 expected). After a
+  Benjamini-Hochberg correction across the 28 firms (`p_bh`), none survives
+  (smallest adjusted p = 0.53).
 - **Weak control group:** in 2024–26 the defensive controls barely moved with
   the market: KO, JNJ, PG, PEP and DUK have market betas between −0.10 and
   0.07. We checked that this is real, not a data error: the raw yfinance
